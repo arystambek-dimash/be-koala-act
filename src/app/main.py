@@ -1,13 +1,9 @@
 from contextlib import asynccontextmanager
 
+from authlib.integrations.starlette_client import OAuth
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from src.api.routers.answers import router as user_answers_router
-from src.api.routers.profiles import router as profile_router
-from src.api.routers.roadmaps import router as roadmap_router
-from src.api.routers.trainings import router as training_router
-from src.api.routers.users import router as users_router
 from src.app.config import Settings
 from src.app.database import make_engine, make_sessionmaker
 
@@ -21,22 +17,23 @@ async def lifespan(app: FastAPI):
     app.state.engine = engine
     app.state.sessionmaker = make_sessionmaker(engine)
 
-    async with engine.begin() as conn:
-        await conn.run_sync(lambda _: None)
+    oauth = OAuth()
+    oauth.register(
+        name="google",
+        client_id=app.state.settings.GOOGLE_CLIENT_ID,
+        client_secret=app.state.settings.GOOGLE_CLIENT_SECRET,
+        authorize_url="https://accounts.google.com/o/oauth2/auth",
+        authorize_params={"scope": "openid email profile"},
+        access_token_url="https://oauth2.googleapis.com/token",
+        client_kwargs={"scope": "openid email profile"},
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration"
+    )
 
-    yield
-
-    await engine.dispose()
+    app.state.oauth = oauth
 
 
 def create_app() -> FastAPI:
     app = FastAPI(lifespan=lifespan)
-    app.include_router(users_router, prefix="/api")
-    app.include_router(profile_router, prefix="/api")
-    app.include_router(roadmap_router, prefix="/api")
-    app.include_router(user_answers_router, prefix="/api")
-    app.include_router(training_router, prefix="/api")
-
     return app
 
 

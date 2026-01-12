@@ -58,3 +58,20 @@ class SubjectEnum(StrEnum):
     READING = "reading"
     SCIENCE = "science"
     MATH = "math"
+
+
+# Уровень: Сколько XP нужно, чтобы перейти на СЛЕДУЮЩИЙ
+LEVEL_TABLE = {
+    1: 500,  # Чтобы перейти с 1 на 2 нужно 500
+    2: 1000,  # Чтобы перейти с 2 на 3 нужно 1000
+    3: 2000,
+    4: 5000,
+    5: 10000,  # Максимальный порог, как ты хотел
+}
+
+MAX_LEVEL = 5
+
+
+class BuildingType(StrEnum):
+    VILLAGE = "village"
+    CASTLE = "castle"

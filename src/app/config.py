@@ -13,14 +13,17 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str
 
     OPENAI_API_KEY: str
-    JWT_ACCESS_TOKEN_SECRET_KEY: str
-    JWT_REFRESH_TOKEN_SECRET_KEY: str
+    SECRET_KEY: str
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 300
 
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
 
+    BACKEND_URL: str
+
     class Config:
-        env_file = ".env"
+        env_file = BASE_DIR / ".env"
 
     @property
     def db_url(self) -> str:
