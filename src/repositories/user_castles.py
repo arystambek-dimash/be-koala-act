@@ -3,14 +3,21 @@ from datetime import datetime, timezone, date
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.app.constants import BuildingType
-from src.models.buildings import Building
 from src.models.user_castles import UserCastle
 from src.repositories.base import BaseRepository
 
 
 class UserCastleRepository(BaseRepository[UserCastle]):
     model = UserCastle
+
+    async def get_by_id(self, id: int, *, with_creds: bool = False) -> UserCastle | None:
+        stmt = select(UserCastle).where(UserCastle.id == id)
+        if with_creds:
+            stmt = stmt.options(
+                selectinload(UserCastle.castle)
+            )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def get_by_user_id(self, user_id: int) -> UserCastle | None:
         stmt = select(UserCastle).where(UserCastle.user_id == user_id)
@@ -46,7 +53,7 @@ class UserCastleRepository(BaseRepository[UserCastle]):
         await self._session.flush()
         return user_castle, collected
 
-    async def record_tap(self, user_castle_id: int) -> UserCastle | None:
+    async def record_taps(self, user_castle_id: int, count: int) -> UserCastle | None:
         user_castle = await self.get_by_id(user_castle_id)
         if not user_castle:
             return None
@@ -56,7 +63,7 @@ class UserCastleRepository(BaseRepository[UserCastle]):
             user_castle.taps_used_today = 0
             user_castle.last_tap_reset_date = today
 
-        user_castle.taps_used_today += 1
+        user_castle.taps_used_today += count
         await self._session.flush()
         return user_castle
 
@@ -71,30 +78,6 @@ class UserCastleRepository(BaseRepository[UserCastle]):
             return max_taps
 
         return max(0, max_taps - user_castle.taps_used_today)
-
-    async def get_user_next_castle(self, user_id: int) -> Building | None:
-        stmt = (
-            select(UserCastle)
-            .where(UserCastle.user_id == user_id)
-            .options(selectinload(UserCastle.castle))
-        )
-        result = await self._session.execute(stmt)
-        user_castle = result.scalar_one_or_none()
-
-        if not user_castle or not user_castle.castle:
-            stmt = select(Building).where(
-                Building.order_index == 1,
-                Building.type == BuildingType.CASTLE,
-            )
-            result = await self._session.execute(stmt)
-            return result.scalar_one_or_none()
-
-        stmt = select(Building).where(
-            Building.order_index == user_castle.castle.order_index + 1,
-            Building.type == BuildingType.CASTLE,
-        )
-        result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()
 
     async def upgrade_castle(self, user_castle_id: int, new_castle_id: int) -> UserCastle | None:
         user_castle = await self.get_by_id(user_castle_id)

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.app.constants import FundType, SubjectEnum
 
@@ -58,3 +58,7 @@ class UpgradeResult(BaseModel):
     new_level: int
     cost_paid: int
     new_balance: int
+
+
+class TapRequest(BaseModel):
+    tapped: int = Field(default=1, ge=1, le=100, description="Number of taps to perform")

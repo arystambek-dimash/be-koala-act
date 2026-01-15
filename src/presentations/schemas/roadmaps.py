@@ -3,29 +3,33 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 
 
-class PassageNodeRead(BaseModel):
+class RoadmapNodeRead(BaseModel):
     id: int
     title: str
-    content: str
+    content: Optional[str]
     order_index: int
+    is_locked: bool
+    is_completed: bool
 
 
-class PassageBossRead(BaseModel):
+class RoadmapBossRead(BaseModel):
     id: int
-    title: Optional[str] = Field(None, max_length=255)
+    title: Optional[str] = Field(None)
+    content: Optional[str] = Field(None)
     config: Optional[dict] = Field(None)
-    pass_score: Optional[int] = Field(None, ge=0, le=100)
-    reward_coins: Optional[int] = Field(None, ge=0)
-    reward_xp: Optional[int] = Field(None, ge=0)
-    node_id: Optional[int] = Field(None, ge=0)
+    pass_score: Optional[int] = Field(None)
+    reward_coins: Optional[int] = Field(None)
+    reward_xp: Optional[int] = Field(None)
+    is_locked: bool
 
 
-class PassageRead(BaseModel):
+class RoadmapPassageRead(BaseModel):
     id: int
-    title: str
     order_index: int
-    boss: PassageBossRead
+    title: str
+    nodes: List[RoadmapNodeRead]
+    boss: Optional[RoadmapBossRead] = None
 
 
 class RoadmapRead(BaseModel):
-    passages: List[PassageRead]
+    passages: List[RoadmapPassageRead]

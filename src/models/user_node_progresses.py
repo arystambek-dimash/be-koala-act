@@ -24,7 +24,3 @@ class UserNodeProgress(Base):
     correct_answer: orm.Mapped[int] = orm.mapped_column(sa.Integer, default=0)
 
     created_at: orm.Mapped[datetime] = orm.mapped_column(sa.DateTime, default=func.now())
-
-    __table_args__ = (
-        sa.UniqueConstraint('user_id', 'node_id', name='uq_user_node_progress'),
-    )
