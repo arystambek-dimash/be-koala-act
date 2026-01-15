@@ -32,6 +32,15 @@ class OnboardCreate(BaseModel):
 
 
 class SingleSubjectOnboard(BaseModel):
-    """Schema for generating passage nodes for a single subject."""
     subject: SubjectEnum
     passages: List[PassageOnboard] = Field(..., min_length=1)
+
+
+class PassageOnboardPreview(BaseModel):
+    id: int
+    title: str
+    order_index: int
+    subject: SubjectEnum
+
+    class Config:
+        from_attributes = True
