@@ -2,6 +2,7 @@ from typing import Sequence
 
 from sqlalchemy import select, func, exists
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import selectinload
 
 from src.models.passage_nodes import PassageNode
 from src.models.user_node_progresses import UserNodeProgress
@@ -11,28 +12,30 @@ from src.repositories.base import BaseRepository
 class PassageNodeRepository(BaseRepository[PassageNode]):
     model = PassageNode
 
-    async def get_by_passage_id(self, passage_id: int) -> Sequence[PassageNode]:
+    async def get_by_id_with_passage(self, node_id: int) -> PassageNode | None:
         stmt = (
             select(PassageNode)
-            .where(PassageNode.passage_id == passage_id)
-            .order_by(PassageNode.order_index)
+            .where(PassageNode.id == node_id)
+            .options(
+                selectinload(PassageNode.passage),
+                selectinload(PassageNode.questions),
+            )
         )
         result = await self._session.execute(stmt)
-        return result.scalars().all()
+        return result.scalar_one_or_none()
 
     async def get_nodes_by_passage_ids(
             self, passage_ids: list[int]
     ) -> Sequence[PassageNode]:
         stmt = (
             select(PassageNode)
-            .where(PassageNode.passage_id.in_(passage_ids))
+            .where(PassageNode.passage_id.in_(passage_ids), PassageNode.is_boss == True)
             .order_by(PassageNode.order_index)
         )
         result = await self._session.execute(stmt)
         return result.scalars().all()
 
     async def has_incomplete_nodes(self, user_id: int, passage_ids: list[int]) -> bool:
-        """Check if there are nodes without progress for given passages."""
         subquery = (
             select(UserNodeProgress.node_id)
             .where(UserNodeProgress.user_id == user_id)

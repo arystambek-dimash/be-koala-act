@@ -1,3 +1,6 @@
+from typing import Sequence
+
+from src.app.constants import SubjectEnum
 from src.app.errors import BadRequestException, NotFoundException
 from src.app.uow import UoW
 from src.models.passages import Passage
@@ -19,6 +22,21 @@ class PassageController:
         self._passage_repository = passage_repository
         self._building_repository = building_repository
 
+    async def get_all(self) -> Sequence[Passage]:
+        return await self._passage_repository.get_all(
+            order_field="order_index",
+            order_type="asc",
+        )
+
+    async def get_by_id(self, passage_id: int) -> Passage:
+        passage = await self._passage_repository.get_by_id_with_nodes(passage_id)
+        if not passage:
+            raise NotFoundException(f"Passage with id {passage_id} not found")
+        return passage
+
+    async def get_by_subject(self, subject: SubjectEnum) -> Sequence[Passage]:
+        return await self._passage_repository.get_by_subject(subject)
+
     async def create(self, data: PassageCreate) -> Passage:
         village = await self._building_repository.get_by_id(data.village_id)
         if not village:
@@ -27,6 +45,7 @@ class PassageController:
         async with self._uow:
             passage = await self._passage_repository.create(
                 village_id=data.village_id,
+                subject=data.subject,
                 title=data.title,
                 order_index=data.order_index,
             )
