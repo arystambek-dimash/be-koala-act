@@ -47,12 +47,14 @@ class CloudflareR2Service:
             *,
             key: str,
             body: bytes,
+            content_type: str,
     ) -> str:
         client = await self._get_client()
         kwargs: dict[str, Any] = {
             "Bucket": self._cfg.bucket_name,
             "Key": key,
             "Body": body,
+            "ContentType": content_type,
         }
         await client.put_object(**kwargs)
         return f"https://pub-6e27f01380fe441daf5372813946fbcd.r2.dev/{key}"
