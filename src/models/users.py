@@ -14,5 +14,6 @@ class User(Base):
     full_name: orm.Mapped[str] = orm.mapped_column(sa.String)
     current_score: orm.Mapped[int] = orm.mapped_column(sa.Integer, default=0)
     target_score: orm.Mapped[int] = orm.mapped_column(sa.Integer, default=36)
-    exam_date: orm.Mapped[datetime] = orm.mapped_column(sa.DateTime)
+    exam_date: orm.Mapped[datetime] = orm.mapped_column(sa.DateTime, nullable=True)
     has_onboard: orm.Mapped[bool] = orm.mapped_column(sa.Boolean, default=False)
+    is_admin: orm.Mapped[bool] = orm.mapped_column(sa.Boolean, default=False)
