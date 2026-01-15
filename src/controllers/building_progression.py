@@ -1,11 +1,11 @@
-from src.app.constants import FundType, SubjectEnum
+from src.app.constants import FundType, SubjectEnum, BuildingType
 from src.app.errors import BadRequestException, NotFoundException
 from src.app.uow import UoW
 from src.presentations.schemas.collectors import UpgradeInfo, UpgradeResult
 from src.repositories import (
     UserCastleRepository,
     UserVillageRepository,
-    WalletRepository,
+    WalletRepository, BuildingRepository,
 )
 
 CASTLE_UPGRADE_FUND_TYPE = FundType.CRYSTAL
@@ -18,22 +18,31 @@ class BuildingProgressionController:
             uow: UoW,
             user_castle_repository: UserCastleRepository,
             user_village_repository: UserVillageRepository,
+            building_repository: BuildingRepository,
             wallet_repository: WalletRepository,
     ):
         self._uow = uow
         self._user_castle_repository = user_castle_repository
         self._user_village_repository = user_village_repository
+        self._building_repository = building_repository
         self._wallet_repository = wallet_repository
 
     async def get_castle_upgrade_info(self, user_id: int) -> UpgradeInfo:
         user_castle = await self._user_castle_repository.get_by_user_id_with_castle(user_id)
-        if not user_castle or not user_castle.castle:
+        if not user_castle:
             raise NotFoundException("User castle not found")
 
         current_castle = user_castle.castle
         current_level = current_castle.order_index
-        next_castle = await self._user_castle_repository.get_user_next_castle(user_id)
-        balance = await self._wallet_repository.get_balance(user_id, CASTLE_UPGRADE_FUND_TYPE)
+        next_castle = await self._building_repository.get_user_next_building(
+            user_id,
+            building_type=BuildingType.CASTLE,
+            current_user_building_id=user_castle.castle_id
+        )
+        balance = await self._wallet_repository.get_balance(
+            user_id,
+            CASTLE_UPGRADE_FUND_TYPE
+        )
 
         if not next_castle:
             return UpgradeInfo(
@@ -61,12 +70,17 @@ class BuildingProgressionController:
 
     async def upgrade_castle(self, user_id: int) -> UpgradeResult:
         user_castle = await self._user_castle_repository.get_by_user_id_with_castle(user_id)
-        if not user_castle or not user_castle.castle:
+        if not user_castle:
             raise NotFoundException("User castle not found")
 
-        next_castle = await self._user_castle_repository.get_user_next_castle(user_id)
+        next_castle = await self._building_repository.get_user_next_building(
+            user_id,
+            building_type=BuildingType.CASTLE,
+            current_user_building_id=user_castle.castle_id
+        )
         if not next_castle:
             raise BadRequestException("Already at maximum castle level")
+
         upgrade_cost = next_castle.cost or 0
         balance = await self._wallet_repository.get_balance(user_id, CASTLE_UPGRADE_FUND_TYPE)
         if balance < upgrade_cost:
@@ -101,12 +115,17 @@ class BuildingProgressionController:
         user_village = await self._user_village_repository.get_by_user_and_subject_with_village(
             user_id, subject
         )
-        if not user_village or not user_village.village:
+        if not user_village:
             raise NotFoundException(f"User village for {subject} not found")
 
         current_village = user_village.village
         current_level = current_village.order_index
-        next_village = await self._user_village_repository.get_user_next_village(user_id, subject)
+        next_village = await self._building_repository.get_user_next_building(
+            user_id,
+            building_type=BuildingType.VILLAGE,
+            subject=subject,
+            current_user_building_id=user_village.village_id
+        )
 
         balance = await self._wallet_repository.get_balance(user_id, VILLAGE_UPGRADE_FUND_TYPE)
 
@@ -138,10 +157,15 @@ class BuildingProgressionController:
         user_village = await self._user_village_repository.get_by_user_and_subject_with_village(
             user_id, subject
         )
-        if not user_village or not user_village.village:
+        if not user_village:
             raise NotFoundException(f"User village for {subject} not found")
 
-        next_village = await self._user_village_repository.get_user_next_village(user_id, subject)
+        next_village = await self._building_repository.get_user_next_building(
+            user_id,
+            building_type=BuildingType.VILLAGE,
+            subject=subject,
+            current_user_building_id=user_village.village_id
+        )
         if not next_village:
             raise BadRequestException(f"Already at maximum village level for {subject}")
 
