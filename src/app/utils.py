@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -88,14 +87,10 @@ def decode_token(
         expected_type: TokenType | None = None,
 ) -> dict[str, Any]:
     try:
-        options = {"verify_aud": bool(settings.AUDIENCE)}
         payload = jwt.decode(
             token,
             settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
-            audience=settings.AUDIENCE,
-            issuer=settings.ISSUER,
-            options=options,
+            algorithms=["HS256"],
         )
     except JWTError as e:
         raise TokenError("Invalid or expired token") from e
@@ -103,40 +98,4 @@ def decode_token(
     if expected_type and payload.get("type") != expected_type:
         raise TokenError(f"Wrong token type. Expected '{expected_type}'")
 
-    if "sub" not in payload:
-        raise TokenError("Token missing 'sub'")
-
     return payload
-
-
-@dataclass
-class AccumulatedTreasure:
-    current_amount: int
-    time_to_full_minutes: int
-
-
-def calculate_accumulated_treasure(
-        current_amount: int,
-        capacity: int,
-        production_rate: int,  # Per hour
-        last_collect_date: Optional[datetime],
-) -> AccumulatedTreasure:
-    if last_collect_date is None:
-        return AccumulatedTreasure(
-            current_amount=current_amount,
-            time_to_full_minutes=int((capacity - current_amount) / production_rate * 60) if production_rate > 0 else 0
-        )
-
-    now = datetime.now(timezone.utc)
-    hours_elapsed = (now - last_collect_date).total_seconds() / 3600
-
-    generated = int(production_rate * hours_elapsed)
-    new_amount = min(current_amount + generated, capacity)
-
-    remaining_capacity = capacity - new_amount
-    time_to_full = int(remaining_capacity / production_rate * 60) if production_rate > 0 else 0
-
-    return AccumulatedTreasure(
-        current_amount=new_amount,
-        time_to_full_minutes=time_to_full
-    )

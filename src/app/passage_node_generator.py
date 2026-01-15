@@ -58,7 +58,6 @@ class PassageNodeGenerator:
     async def generate(
             self,
             passages: List[PassageOnboard],
-            user_id: int,
     ) -> GenerationResult:
         if not passages:
             return GenerationResult(nodes_created=0, nodes=[])
@@ -94,7 +93,6 @@ class PassageNodeGenerator:
     ) -> GenerationResult:
         valid_passage_ids = {p.passage_id for p in passages}
 
-        # Group nodes by passage_id and assign order_index
         nodes_by_passage: dict[int, list] = {}
         for node in response.nodes:
             if node.passage_id in valid_passage_ids:
