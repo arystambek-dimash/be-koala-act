@@ -8,7 +8,7 @@ from src.presentations.depends import (
     get_current_user,
     get_building_controller, require_admin
 )
-from src.presentations.schemas.castles import BuildingCreate, BuildingRead, BuildingWithPassagesRead
+from src.presentations.schemas.buildings import BuildingCreate, BuildingRead, BuildingWithPassagesRead
 
 router = APIRouter(prefix="/buildings", tags=["Buildings"])
 

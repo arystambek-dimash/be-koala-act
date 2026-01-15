@@ -3,7 +3,7 @@ from typing import Sequence
 from src.app.cloudflare_r2 import CloudflareR2Service
 from src.app.errors import NotFoundException
 from src.app.uow import UoW
-from src.presentations.schemas.castles import BuildingCreate, BuildingRead, BuildingWithPassagesRead
+from src.presentations.schemas.buildings import BuildingCreate, BuildingRead, BuildingWithPassagesRead
 from src.presentations.schemas.passages import PassageRead
 from src.repositories import BuildingRepository, PassageRepository
 
