@@ -45,6 +45,6 @@ class Passage(Base):
     village = orm.relationship("Building", uselist=False, viewonly=True)
 
     __table_args__ = (
-        sa.UniqueConstraint("village_id", "order_index", name="uq_passage_village_order"),
+        sa.UniqueConstraint("village_id", "order_index", "subject", name="uq_passage_village_order"),
         sa.Index("ix_passage_village_order", "village_id", "order_index"),
     )
