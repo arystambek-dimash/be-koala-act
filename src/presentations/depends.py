@@ -20,6 +20,7 @@ from src.controllers.passages import PassageController
 from src.controllers.questions import QuestionController
 from src.controllers.roadmaps import RoadmapController
 from src.controllers.subject_onboard import SubjectOnboardController
+from src.controllers.submits import SubmitController
 from src.repositories import (
     UserRepository,
     BuildingRepository,
@@ -277,12 +278,16 @@ async def get_building_controller(
         building_repository: BuildingRepository = Depends(get_building_repository),
         cloudflare_r2: CloudflareR2Service = Depends(get_cloudflare_r2_service),
         passage_repository: PassageRepository = Depends(get_passage_repository),
+        user_village_repository: UserVillageRepository = Depends(get_user_village_repository),
+        user_castle_repository: UserCastleRepository = Depends(get_user_castle_repository),
 ) -> BuildingController:
     return BuildingController(
         uow=uow,
         building_repository=building_repository,
         cloudflare_r2=cloudflare_r2,
         passage_repository=passage_repository,
+        user_village_repository=user_village_repository,
+        user_castle_repository=user_castle_repository,
     )
 
 
@@ -333,4 +338,18 @@ async def get_question_controller(
         uow=uow,
         question_repository=question_repository,
         node_repository=node_repository,
+    )
+
+
+async def get_submit_controller(
+        uow: UoW = Depends(get_uow),
+        question_repository: QuestionRepository = Depends(get_question_repository),
+        node_repository: PassageNodeRepository = Depends(get_passage_node_repository),
+        user_progress_repository: UserNodeProgressRepository = Depends(get_user_node_progress_repository),
+) -> SubmitController:
+    return SubmitController(
+        uow=uow,
+        question_repository=question_repository,
+        node_repository=node_repository,
+        user_progress_repository=user_progress_repository,
     )

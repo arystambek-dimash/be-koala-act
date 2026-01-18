@@ -1,7 +1,7 @@
 import asyncio
 from typing import List
 
-from src.app.constants import SubjectEnum, BuildingType
+from src.app.constants import SubjectEnum
 from src.app.errors import BadRequestException
 from src.app.passage_node_generator import PassageNodeGenerator
 from src.app.uow import UoW
@@ -12,7 +12,7 @@ from src.repositories import (
     PassageRepository,
     UserCastleRepository,
     UserRepository,
-    UserVillageRepository,
+    UserVillageRepository, PassageNodeRepository,
 )
 
 
@@ -25,6 +25,7 @@ class OnboardController:
             building_repository: BuildingRepository,
             user_castle_repository: UserCastleRepository,
             user_village_repository: UserVillageRepository,
+            node_repository: PassageNodeRepository,
             node_generator: PassageNodeGenerator,
     ):
         self._uow = uow
@@ -33,6 +34,7 @@ class OnboardController:
         self._building_repository = building_repository
         self._user_castle_repository = user_castle_repository
         self._user_village_repository = user_village_repository
+        self._node_repository = node_repository
         self._node_generator = node_generator
 
     async def execute(self, user: UserRead, onboard: OnboardCreate) -> None:
@@ -40,9 +42,8 @@ class OnboardController:
             raise BadRequestException("User has already completed onboarding")
 
         async with self._uow:
-            db_castle = await self._building_repository.get_user_next_building(
-                user.id,
-                building_type=BuildingType.CASTLE,
+            db_castle = await self._building_repository.get_user_next_castle(
+                user.id
             )
             await self._user_castle_repository.create(
                 user_id=user.id,
@@ -76,9 +77,8 @@ class OnboardController:
             passages: List[PassageOnboard],
             user_id: int,
     ) -> None:
-        db_village = await self._building_repository.get_user_next_building(
+        db_village = await self._building_repository.get_user_next_village(
             user_id,
-            building_type=BuildingType.VILLAGE,
             subject=subject,
         )
 

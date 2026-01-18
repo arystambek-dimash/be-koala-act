@@ -23,25 +23,25 @@ class UserController:
             if not db_user:
                 raise NotFoundException("User not found")
             async with self.uow:
-                updated = await self.user_repo.update(user_id, **data.dict(exclude_unset=True))
-            return UserRead.from_orm(updated)
+                updated = await self.user_repo.update(user_id, **data.model_dump(exclude_unset=True))
+            return UserRead.model_validate(updated)
         except Exception as e:
             raise e
 
     async def get_user_buildings(self, user_id: int):
-        user_castle = await self.castle_repository.get_by_id(user_id, with_creds=True)
+        user_castle = await self.castle_repository.get_user_castle(user_id)
         if not user_castle:
             raise NotFoundException("User castle is not found")
 
         user_villages = await self.village_repository.get_user_villages(user_id)
-        villages = [UserVillageRead.from_orm(village) for village in user_villages]
+        villages = [UserVillageRead.model_validate(village) for village in user_villages]
         return UserCastleWithVillages(
-            id=user_castle.id,
-            svg=user_castle.castle.svg,
-            treasure_amount=user_castle.treasure_amount,
-            last_collect_date=user_castle.last_collect_date,
-            taps_used_today=user_castle.taps_used_today,
-            last_tap_reset_date=user_castle.last_tap_reset_date,
-            speed_production_treasure=user_castle.castle.speed_production_treasure,
+            id=user_castle.get("user_castle_id"),
+            svg=user_castle.get("castle_svg"),
+            treasure_amount=user_castle.get("treasure_amount"),
+            last_collect_date=user_castle.get("last_collect_date"),
+            taps_used_today=user_castle.get("taps_used_today"),
+            last_tap_reset_date=user_castle.get("last_tap_reset_date"),
+            speed_production_treasure=user_castle.get("speed_production_treasure"),
             villages=villages,
         )

@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
-from typing import Sequence
+from typing import Any
 
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select, update, and_
+from sqlalchemy.orm import aliased
 
+from src.app.constants import BuildingType
+from src.models.buildings import Building
 from src.models.user_villages import UserVillage
 from src.repositories.base import BaseRepository
 
@@ -11,44 +13,105 @@ from src.repositories.base import BaseRepository
 class UserVillageRepository(BaseRepository[UserVillage]):
     model = UserVillage
 
-    async def get_user_villages(
-            self,
-            user_id: int
-    ) -> Sequence[UserVillage]:
-        stmt = (
-            select(UserVillage)
-            .where(UserVillage.user_id == user_id)
-            .options(selectinload(UserVillage.village))
-        )
-        result = await self._session.execute(stmt)
-        return result.scalars().all()
+    async def get_user_villages(self, user_id: int) -> list[dict[str, Any]]:
+        Next = aliased(Building)
 
-    async def get_by_user_and_village(
+        stmt = (
+            select(
+                UserVillage.id.label("user_village_id"),
+                UserVillage.user_id,
+                UserVillage.treasure_amount,
+                UserVillage.last_collect_date,
+                UserVillage.last_update_at,
+
+                Building.id.label("village_id"),
+                Building.title.label("village_title"),
+                Building.svg.label("village_svg"),
+                Building.subject.label("village_subject"),
+
+                Building.next_building_id.label("next_building_id"),
+                Next.title.label("next_building_title"),
+
+                Building.treasure_capacity,
+                Building.speed_production_treasure,
+                Building.cost,
+            )
+            .join(Building, Building.id == UserVillage.village_id)
+            .outerjoin(Next, Next.id == Building.next_building_id)
+            .where(
+                UserVillage.user_id == user_id,
+                Building.type == BuildingType.VILLAGE,
+            )
+            .order_by(Building.subject.asc(), Building.id.asc())
+        )
+
+        result = await self._session.execute(stmt)
+        return [dict(r) for r in result.mappings().all()]
+
+    async def get_village_by_user(
             self,
             user_id: int,
             village_id: int,
-            with_details: bool = False
-    ) -> UserVillage | None:
-        stmt = select(UserVillage).where(
-            UserVillage.user_id == user_id,
-            UserVillage.village_id == village_id,
+    ) -> dict[str, Any] | None:
+        stmt = (
+            select(
+                UserVillage.id.label("user_village_id"),
+                UserVillage.user_id,
+                UserVillage.treasure_amount,
+                UserVillage.last_collect_date,
+                UserVillage.last_update_at,
+                Building.id.label("village_id"),
+                Building.title.label("village_title"),
+                Building.svg.label("village_svg"),
+                Building.subject.label("village_subject"),
+                Building.treasure_capacity,
+                Building.speed_production_treasure,
+                Building.cost,
+                Building.next_building_id,
+            )
+            .join(Building, Building.id == UserVillage.village_id)
+            .where(
+                UserVillage.user_id == user_id,
+                UserVillage.village_id == village_id
+            )
         )
-        if with_details:
-            stmt = stmt.options(UserVillage.village)
         result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()
+        row = result.mappings().one_or_none()
+        return dict(row) if row else None
 
-    async def village_by_user_and_subject(
+    async def get_village_by_user_subject(
             self,
             user_id: int,
-            subject: str
-    ) -> UserVillage | None:
-        stmt = select(UserVillage).where(
-            UserVillage.user_id == user_id,
-            UserVillage.subject == subject,
+            subject: str,
+    ) -> dict[str, Any] | None:
+        stmt = (
+            select(
+                UserVillage.id.label("user_village_id"),
+                UserVillage.user_id,
+                UserVillage.treasure_amount,
+                UserVillage.last_collect_date,
+                UserVillage.last_update_at,
+                Building.id.label("village_id"),
+                Building.title.label("village_title"),
+                Building.svg.label("village_svg"),
+                Building.subject.label("village_subject"),
+                Building.treasure_capacity,
+                Building.speed_production_treasure,
+                Building.cost,
+                Building.next_building_id,
+            )
+            .join(
+                Building,
+                and_(
+                    Building.id == UserVillage.village_id,
+                    Building.subject == subject
+                )
+            )
+            .where(UserVillage.user_id == user_id)
         )
         result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()
+        row = result.mappings().one_or_none()
+        return dict(row) if row else None
 
     async def update_treasure(
             self, user_village_id: int, treasure_amount: int
@@ -81,3 +144,11 @@ class UserVillageRepository(BaseRepository[UserVillage]):
         user_village.treasure_amount = 0
         await self._session.flush()
         return user_village
+
+    async def migrate_users_to_village(self, old_village_id: int, new_village_id: int):
+        stmt = (
+            update(UserVillage)
+            .where(UserVillage.village_id == old_village_id)
+            .values(village_id=new_village_id)
+        )
+        await self._session.execute(stmt)

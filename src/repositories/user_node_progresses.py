@@ -2,7 +2,7 @@ from typing import Sequence
 
 from sqlalchemy import select
 
-from src.models.user_node_progresses import UserNodeProgress
+from src.models.node_progresses import UserNodeProgress
 from src.repositories.base import BaseRepository
 
 

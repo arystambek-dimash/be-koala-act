@@ -4,7 +4,7 @@ from typing import List, Sequence
 from pydantic import BaseModel
 
 from src.app.openai_service import OpenAIService
-from src.models.passage_nodes import PassageNode
+from src.models.nodes import PassageNode
 from src.presentations.schemas.onboards import PassageOnboard
 from src.repositories import PassageNodeRepository
 
@@ -58,6 +58,7 @@ class PassageNodeGenerator:
     async def generate(
             self,
             passages: List[PassageOnboard],
+            user_id: int | None = None,
     ) -> GenerationResult:
         if not passages:
             return GenerationResult(nodes_created=0, nodes=[])
@@ -67,7 +68,7 @@ class PassageNodeGenerator:
         if not response.nodes:
             return GenerationResult(nodes_created=0, nodes=[])
 
-        return await self._persist_nodes(response, passages)
+        return await self._persist_nodes(response, passages, user_id)
 
     async def _request_ai_generation(
             self,
@@ -90,25 +91,20 @@ class PassageNodeGenerator:
             self,
             response: NodeAIResponse,
             passages: List[PassageOnboard],
+            user_id: int | None = None,
     ) -> GenerationResult:
         valid_passage_ids = {p.passage_id for p in passages}
 
-        nodes_by_passage: dict[int, list] = {}
+        nodes_to_create = []
         for node in response.nodes:
             if node.passage_id in valid_passage_ids:
-                if node.passage_id not in nodes_by_passage:
-                    nodes_by_passage[node.passage_id] = []
-                nodes_by_passage[node.passage_id].append(node)
-
-        nodes_to_create = []
-        for passage_id, passage_nodes in nodes_by_passage.items():
-            current_max_order = await self._node_repository.get_max_order_index(passage_id)
-            for idx, node in enumerate(passage_nodes, start=1):
                 nodes_to_create.append({
                     "passage_id": node.passage_id,
                     "title": node.node_title,
                     "content": node.node_content,
-                    "order_index": current_max_order + idx,
+                    "is_boss": False,
+                    "user_id": user_id,
+                    "config": {},
                 })
 
         if not nodes_to_create:

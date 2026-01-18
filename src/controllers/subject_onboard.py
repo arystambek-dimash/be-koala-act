@@ -1,4 +1,4 @@
-from src.app.constants import SubjectEnum, BuildingType
+from src.app.constants import SubjectEnum
 from src.app.errors import BadRequestException
 from src.app.passage_node_generator import PassageNodeGenerator
 from src.app.uow import UoW
@@ -32,20 +32,7 @@ class SubjectOnboardController:
             data: SingleSubjectOnboard,
     ):
         async with self._uow:
-            passage_ids = [p.passage_id for p in data.passages]
-            existing_count = await self._node_repository.count_nodes_by_passage_ids(passage_ids)
-            if existing_count == 0:
-                return
-            has_incomplete = await self._node_repository.has_incomplete_nodes(user.id, passage_ids)
-            if has_incomplete:
-                raise BadRequestException(
-                    "Cannot generate new nodes. "
-                    "Please complete existing nodes first. "
-                    "Use force=true to override."
-                )
-
             await self._ensure_village_exists(user.id, data.subject)
-
             result = await self._node_generator.generate(data.passages)
 
             return result
@@ -53,16 +40,15 @@ class SubjectOnboardController:
     async def _ensure_village_exists(self, user_id: int, subject: SubjectEnum) -> None:
         existing = await (
             self._user_village_repository
-            .village_by_user_and_subject(
-                user_id, subject
+            .get_village_by_user_subject(
+                user_id,
+                subject
             )
         )
         if existing:
             return
-        db_village = await self._building_repository.get_user_next_building(
+        db_village = await self._building_repository.get_user_next_village(
             user_id,
-            building_type=BuildingType.VILLAGE,
-            current_user_building_id=existing.village_id,
             subject=subject
         )
         if not db_village:
