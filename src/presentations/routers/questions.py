@@ -10,8 +10,7 @@ from src.presentations.depends import (
 from src.presentations.schemas.questions import (
     QuestionCreate,
     QuestionRead,
-    QuestionUpdate,
-)
+    QuestionUpdate, QuestionReorder, )
 
 router = APIRouter(prefix="/questions", tags=["Questions"])
 
@@ -33,6 +32,16 @@ async def create_question(
         _=Depends(require_admin),
 ):
     return await controller.create(node_id, body)
+
+
+@router.patch("/order/{node_id}", response_model=List[QuestionRead])
+async def swap_order(
+        node_id: int,
+        data: QuestionReorder,
+        _=Depends(require_admin),
+        controller: QuestionController = Depends(get_question_controller),
+):
+    return await controller.reorder_questions(node_id, data.question_id, data.order_index)
 
 
 @router.patch("/{question_id}", response_model=QuestionRead)

@@ -32,11 +32,14 @@ class QuestionController:
         if not node:
             raise NotFoundException(f"Node with id {node_id} not found")
 
+        count = await self._question_repository.count_by_node_id(node_id)
+
         async with self._uow:
             question = await self._question_repository.create(
                 node_id=node_id,
                 type=data.type.value,
                 content=data.content,
+                order_index=count + 1,
             )
             return question
 
@@ -63,3 +66,21 @@ class QuestionController:
 
         async with self._uow:
             return await self._question_repository.delete(question_id)
+
+    async def reorder_questions(
+            self,
+            node_id: int,
+            question_id: int,
+            new_index: int,
+    ):
+        question = await self._question_repository.get_by_id(question_id)
+        if not question:
+            raise NotFoundException(f"Question with id {question_id} not found")
+        async with self._uow:
+            await self._question_repository.reorder(
+                fk_id=node_id,
+                item_id=question.id,
+                new_index=new_index,
+                fk_name="node_id",
+            )
+        return await self._question_repository.get_by_node_id(node_id)

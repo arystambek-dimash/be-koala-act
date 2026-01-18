@@ -143,6 +143,7 @@ class QuestionRead(BaseModel):
     node_id: int
     type: str
     content: dict[str, Any]
+    order_index: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -166,7 +167,6 @@ class NodeDetailedRead(BaseModel):
     passage_id: int
     title: str
     content: Optional[str]
-    order_index: int
     is_boss: bool
     config: dict
     pass_score: Optional[int]
@@ -221,3 +221,8 @@ class AIFeedbackResponse(BaseModel):
     accuracy: float
     retest_recommended: bool
     improvement_tips: List[str]
+
+
+class QuestionReorder(BaseModel):
+    question_id: int
+    order_index: int
