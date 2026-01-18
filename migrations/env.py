@@ -8,12 +8,11 @@ from src.app.config import settings
 from src.app.database import Base
 from src.models.buildings import Building
 from src.models.experiences import Experience
-from src.models.passage_bosses import PassageBoss
-from src.models.passage_nodes import PassageNode
+from src.models.nodes import PassageNode
 from src.models.passages import Passage
 from src.models.questions import Question
 from src.models.user_castles import UserCastle
-from src.models.user_node_progresses import UserNodeProgress
+from src.models.node_progresses import UserNodeProgress
 from src.models.user_villages import UserVillage
 from src.models.users import User
 from src.models.wallets import Wallet
