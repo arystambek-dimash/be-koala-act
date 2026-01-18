@@ -1,4 +1,4 @@
-from src.app.constants import FundType, SubjectEnum, BuildingType
+from src.app.constants import FundType, SubjectEnum
 from src.app.errors import BadRequestException, NotFoundException
 from src.app.uow import UoW
 from src.presentations.schemas.collectors import UpgradeInfo, UpgradeResult
@@ -28,17 +28,12 @@ class BuildingProgressionController:
         self._wallet_repository = wallet_repository
 
     async def get_castle_upgrade_info(self, user_id: int) -> UpgradeInfo:
-        user_castle = await self._user_castle_repository.get_by_user_id_with_castle(user_id)
-        if not user_castle:
+        user_castle_data = await self._user_castle_repository.get_user_castle(user_id)
+        if not user_castle_data:
             raise NotFoundException("User castle not found")
 
-        current_castle = user_castle.castle
-        current_level = current_castle.order_index
-        next_castle = await self._building_repository.get_user_next_building(
-            user_id,
-            building_type=BuildingType.CASTLE,
-            current_user_building_id=user_castle.castle_id
-        )
+        current_level = user_castle_data.get("castle_id")
+        next_castle = await self._building_repository.get_user_next_castle(user_id)
         balance = await self._wallet_repository.get_balance(
             user_id,
             CASTLE_UPGRADE_FUND_TYPE
@@ -61,7 +56,7 @@ class BuildingProgressionController:
         return UpgradeInfo(
             can_upgrade=can_afford,
             current_level=current_level,
-            next_level=next_castle.order_index,
+            next_level=next_castle.id,
             upgrade_cost=upgrade_cost,
             cost_fund_type=CASTLE_UPGRADE_FUND_TYPE,
             current_balance=balance,
@@ -69,15 +64,11 @@ class BuildingProgressionController:
         )
 
     async def upgrade_castle(self, user_id: int) -> UpgradeResult:
-        user_castle = await self._user_castle_repository.get_by_user_id_with_castle(user_id)
-        if not user_castle:
+        user_castle_data = await self._user_castle_repository.get_user_castle(user_id)
+        if not user_castle_data:
             raise NotFoundException("User castle not found")
 
-        next_castle = await self._building_repository.get_user_next_building(
-            user_id,
-            building_type=BuildingType.CASTLE,
-            current_user_building_id=user_castle.castle_id
-        )
+        next_castle = await self._building_repository.get_user_next_castle(user_id)
         if not next_castle:
             raise BadRequestException("Already at maximum castle level")
 
@@ -98,7 +89,7 @@ class BuildingProgressionController:
                 )
 
             await self._user_castle_repository.upgrade_castle(
-                user_castle_id=user_castle.id,
+                user_castle_id=user_castle_data.get("user_castle_id"),
                 new_castle_id=next_castle.id,
             )
 
@@ -106,26 +97,24 @@ class BuildingProgressionController:
 
         return UpgradeResult(
             success=True,
-            new_level=next_castle.order_index,
+            new_level=next_castle.id,
             cost_paid=upgrade_cost,
             new_balance=new_balance,
         )
 
     async def get_village_upgrade_info(self, user_id: int, subject: SubjectEnum) -> UpgradeInfo:
-        user_village = await self._user_village_repository.get_by_user_and_subject_with_village(
-            user_id, subject
-        )
+        user_villages = await self._user_village_repository.get_user_villages(user_id)
+        user_village = None
+        for v in user_villages:
+            if v.get("village_subject") == subject:
+                user_village = v
+                break
+
         if not user_village:
             raise NotFoundException(f"User village for {subject} not found")
 
-        current_village = user_village.village
-        current_level = current_village.order_index
-        next_village = await self._building_repository.get_user_next_building(
-            user_id,
-            building_type=BuildingType.VILLAGE,
-            subject=subject,
-            current_user_building_id=user_village.village_id
-        )
+        current_level = user_village.get("village_id")
+        next_village = await self._building_repository.get_user_next_village(user_id, subject)
 
         balance = await self._wallet_repository.get_balance(user_id, VILLAGE_UPGRADE_FUND_TYPE)
 
@@ -146,7 +135,7 @@ class BuildingProgressionController:
         return UpgradeInfo(
             can_upgrade=can_afford,
             current_level=current_level,
-            next_level=next_village.order_index,
+            next_level=next_village.id,
             upgrade_cost=upgrade_cost,
             cost_fund_type=VILLAGE_UPGRADE_FUND_TYPE,
             current_balance=balance,
@@ -154,18 +143,17 @@ class BuildingProgressionController:
         )
 
     async def upgrade_village(self, user_id: int, subject: SubjectEnum) -> UpgradeResult:
-        user_village = await self._user_village_repository.get_by_user_and_subject_with_village(
-            user_id, subject
-        )
+        user_villages = await self._user_village_repository.get_user_villages(user_id)
+        user_village = None
+        for v in user_villages:
+            if v.get("village_subject") == subject:
+                user_village = v
+                break
+
         if not user_village:
             raise NotFoundException(f"User village for {subject} not found")
 
-        next_village = await self._building_repository.get_user_next_building(
-            user_id,
-            building_type=BuildingType.VILLAGE,
-            subject=subject,
-            current_user_building_id=user_village.village_id
-        )
+        next_village = await self._building_repository.get_user_next_village(user_id, subject)
         if not next_village:
             raise BadRequestException(f"Already at maximum village level for {subject}")
 
@@ -187,7 +175,7 @@ class BuildingProgressionController:
                 )
 
             await self._user_village_repository.upgrade_village(
-                user_village_id=user_village.id,
+                user_village_id=user_village.get("user_village_id"),
                 new_village_id=next_village.id,
             )
 
@@ -195,7 +183,7 @@ class BuildingProgressionController:
 
         return UpgradeResult(
             success=True,
-            new_level=next_village.order_index,
+            new_level=next_village.id,
             cost_paid=upgrade_cost,
             new_balance=new_balance,
         )
