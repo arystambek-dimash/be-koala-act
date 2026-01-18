@@ -61,3 +61,10 @@ class BaseRepository(Generic[ModelType]):
         stmt = delete(self.model).where(self.model.id == id)
         result = await self._session.execute(stmt)
         return result.rowcount > 0
+
+    async def bulk_create(self, items: list[dict]) -> Sequence[ModelType]:
+        if not items:
+            return []
+        stmt = insert(self.model).values(items).returning(self.model)
+        result = await self._session.execute(stmt)
+        return result.scalars().all()
