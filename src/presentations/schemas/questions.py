@@ -1,8 +1,9 @@
-from typing import List, Optional, Union, Any, Literal
+from typing import List, Optional, Any, Literal
 
 from pydantic import BaseModel, Field
 
 from src.app.constants import QuestionType
+
 
 class FindErrorContent(BaseModel):
     sentence: str
@@ -35,19 +36,15 @@ class HighlightContent(BaseModel):
     explanation: str
 
 
-class SwipeCard(BaseModel):
-    content: str
-    correct_swipe: Literal["left", "right"]
-    explanation: str
-
-
 class SwipeLabels(BaseModel):
     left: str
     right: str
 
 
 class SwipeDecisionContent(BaseModel):
-    cards: List[SwipeCard]
+    content: str
+    correct_swipe: Literal["left", "right"]
+    explanation: str
     labels: SwipeLabels
 
 
@@ -70,7 +67,6 @@ class FillGapContent(BaseModel):
 
 
 class MatchingPair(BaseModel):
-    id: str
     left: str
     right: str
 
@@ -104,24 +100,7 @@ class SliderValueContent(BaseModel):
     explanation: str
 
 
-# Union type for question content
-QuestionContent = Union[
-    FindErrorContent,
-    StrikeOutContent,
-    OrderingContent,
-    HighlightContent,
-    SwipeDecisionContent,
-    MultipleChoiceContent,
-    FillGapContent,
-    MatchingContent,
-    GraphPointContent,
-    TrendArrowContent,
-    SliderValueContent,
-]
-
-
 # --- Question schemas ---
-
 class QuestionBase(BaseModel):
     type: QuestionType
     text: str = Field(..., description="Question prompt text")
@@ -147,80 +126,6 @@ class QuestionRead(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class GeneratedQuestion(BaseModel):
-    type: QuestionType
-    text: str
-    content: dict[str, Any]
-
-
-class ListNodeRelationsResponse(BaseModel):
-    questions: List[GeneratedQuestion] = Field(
-        ...,
-        description="List of generated questions for the lesson node"
-    )
-
-
-class NodeDetailedRead(BaseModel):
-    id: int
-    passage_id: int
-    title: str
-    content: Optional[str]
-    is_boss: bool
-    config: dict
-    pass_score: Optional[int]
-    reward_coins: Optional[int]
-    reward_xp: Optional[int]
-    questions: List[QuestionRead] = []
-
-    class Config:
-        from_attributes = True
-
-
-# --- Progress/Attempt schemas ---
-
-class NodeProgressCreate(BaseModel):
-    accuracy: float = Field(..., ge=0, le=1, description="Accuracy as decimal 0-1")
-    correct_answer: int = Field(..., ge=0, description="Number of correct answers")
-    total_questions: int = Field(..., ge=1, description="Total questions attempted")
-
-
-class NodeProgressRead(BaseModel):
-    id: int
-    node_id: int
-    accuracy: float
-    correct_answer: int
-    xp: float
-    created_at: Any
-
-    class Config:
-        from_attributes = True
-
-
-class UserAnswerInput(BaseModel):
-    question_id: int
-    user_answer: Any = Field(..., description="User's answer (varies by question type)")
-
-
-class AIFeedbackRequest(BaseModel):
-    answers: List[UserAnswerInput] = Field(..., min_length=1)
-
-
-class WrongQuestionFeedback(BaseModel):
-    question_id: int
-    question_text: str
-    user_answer: Any
-    correct_answer: Any
-    explanation: str
-
-
-class AIFeedbackResponse(BaseModel):
-    overall_feedback: str
-    wrong_questions: List[WrongQuestionFeedback]
-    accuracy: float
-    retest_recommended: bool
-    improvement_tips: List[str]
 
 
 class QuestionReorder(BaseModel):
