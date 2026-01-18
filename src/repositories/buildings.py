@@ -1,63 +1,120 @@
-from typing import Optional
+from typing import Mapping, Any, Sequence
 
 from sqlalchemy import select
 
-from src.app.constants import BuildingType
+from src.app.constants import SubjectEnum, BuildingType
 from src.models.buildings import Building
 from src.models.user_castles import UserCastle
 from src.models.user_villages import UserVillage
 from src.repositories.base import BaseRepository
+from src.repositories.utils_repositories import UtilsRepository
 
 
-class BuildingRepository(BaseRepository[Building]):
+class BuildingRepository(BaseRepository[Building], UtilsRepository):
     model = Building
 
-    async def get_user_next_building(
+    async def list_buildings(
             self,
-            user_id: int,
+            *,
             building_type: BuildingType,
-            current_user_building_id: int | None = None,
-            subject: Optional[str] = None,
-    ) -> Building | None:
-        if building_type == BuildingType.VILLAGE and not subject:
-            raise ValueError("subject is required for VILLAGE")
-
-        UserBuilding = UserCastle if building_type == BuildingType.CASTLE else UserVillage
-        building_fk = UserBuilding.castle_id if building_type == BuildingType.CASTLE else UserBuilding.village_id
-        if current_user_building_id is None:
-            stmt = (
-                select(Building)
-                .where(Building.type == building_type)
-                .order_by(Building.order_index.asc())
-                .limit(1)
+            user_id: int | None = None,
+            subject: SubjectEnum | None = None,
+    ) -> Sequence[Building]:
+        stmt = (
+            select(
+                Building
             )
-            result = await self._session.execute(stmt)
-            return result.scalar_one_or_none()
-
-        current_order_subq = (
-            select(Building.order_index)
-            .select_from(UserBuilding)
-            .join(Building, Building.id == building_fk)
-            .where(
-                UserBuilding.user_id == user_id,
-                UserBuilding.id == current_user_building_id,
-                Building.type == building_type,
-            )
+            .where(Building.type == building_type)
+            .order_by(Building.id.asc())
         )
 
         if building_type == BuildingType.VILLAGE:
-            current_order_subq = current_order_subq.where(UserBuilding.subject == subject)
+            if subject is None:
+                stmt = stmt.where(Building.subject.isnot(None))
+            else:
+                stmt = stmt.where(Building.subject == subject)
+        if user_id is not None:
+            if building_type == BuildingType.CASTLE:
+                stmt = stmt.add_columns(
+                    (UserCastle.castle_id == Building.id).label("is_current")
+                ).outerjoin(
+                    UserCastle,
+                    UserCastle.user_id == user_id,
+                )
+            else:
+                stmt = stmt.add_columns(
+                    (UserVillage.village_id == Building.id).label("is_current")
+                ).outerjoin(
+                    UserVillage,
+                    (
+                            UserVillage.user_id == user_id
+                    )
+                    &
+                    (
+                            UserVillage.village_id == Building.id
+                    )
+                )
+        result = await self._session.execute(stmt)
+        return result.scalars().all()
 
-        current_order_subq = current_order_subq.scalar_subquery()
-        stmt = (
-            select(Building)
-            .where(
-                Building.type == building_type,
-                Building.order_index > current_order_subq,
-            )
-            .order_by(Building.order_index.asc())
-            .limit(1)
+    async def get_user_next_castle(self, user_id: int) -> Building | None:
+        user_castle_id = await self._session.scalar(
+            select(UserCastle.castle_id).where(UserCastle.user_id == user_id)
         )
 
-        result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()
+        if user_castle_id is None:
+            return await self._session.scalar(
+                select(Building)
+                .where(Building.type == BuildingType.CASTLE)
+                .order_by(Building.id.asc())
+                .limit(1)
+            )
+
+        next_id = await self._session.scalar(
+            select(Building.next_building_id).where(Building.id == user_castle_id)
+        )
+        if next_id is None:
+            return None
+
+        return await self._session.scalar(
+            select(Building).where(
+                Building.id == next_id,
+                Building.type == BuildingType.CASTLE,
+            )
+        )
+
+    async def get_user_next_village(self, user_id: int, subject: SubjectEnum) -> Building | None:
+        current_village_id = await self._session.scalar(
+            select(UserVillage.village_id)
+            .join(Building, Building.id == UserVillage.village_id)
+            .where(
+                UserVillage.user_id == user_id,
+                Building.type == BuildingType.VILLAGE,
+                Building.subject == subject,
+            )
+        )
+
+        if current_village_id is None:
+            return await self._session.scalar(
+                select(Building)
+                .where(
+                    Building.type == BuildingType.VILLAGE,
+                    Building.subject == subject,
+                )
+                .order_by(Building.id.asc())
+                .limit(1)
+            )
+
+        next_id = await self._session.scalar(
+            select(Building.next_building_id).where(Building.id == current_village_id)
+        )
+        if next_id is None:
+            return None
+
+        return await self._session.scalar(
+            select(Building).where(
+                Building.id == next_id,
+                Building.type == BuildingType.VILLAGE,
+                Building.subject == subject,
+            )
+        )
