@@ -1,4 +1,4 @@
-from typing import List
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 
@@ -7,41 +7,32 @@ from src.presentations.depends import (
     get_passage_node_controller, require_admin,
 )
 from src.presentations.schemas.nodes import (
-    PassageNodeCreate,
-    PassageNodeUpdate,
-    NodeRead,
+    BossNodeCreate,
+    BossNodeUpdate,
+    BossNodeRead,
 )
 
-router = APIRouter(prefix="/nodes", tags=["Passage Nodes"])
+router = APIRouter(prefix="/boss", tags=["Node Bosses"])
 
 
-@router.get("/passage/{passage_id}", response_model=List[NodeRead], description="Get passage boss nodes")
-async def list_nodes_by_passage(
+@router.post("", response_model=BossNodeRead, description="Create a boss node for passage")
+async def create_boss(
         passage_id: int,
+        body: BossNodeCreate,
         controller: PassageNodeController = Depends(get_passage_node_controller),
         _=Depends(require_admin),
 ):
-    return await controller.get_nodes_by_passage(passage_id)
+    return await controller.create_boss(passage_id, body)
 
 
-@router.post("/passage/{passage_id}", response_model=NodeRead)
-async def create_node(
-        passage_id: int,
-        body: PassageNodeCreate,
-        controller: PassageNodeController = Depends(get_passage_node_controller),
-        _=Depends(require_admin),
-):
-    return await controller.create_node(passage_id, body)
-
-
-@router.patch("/{node_id}", response_model=NodeRead)
-async def update_node(
+@router.patch("/{node_id}", response_model=BossNodeRead)
+async def update_boss(
         node_id: int,
-        body: PassageNodeUpdate,
+        body: BossNodeUpdate,
         controller: PassageNodeController = Depends(get_passage_node_controller),
         _=Depends(require_admin),
 ):
-    return await controller.update_node(node_id, body)
+    return await controller.update_boss(node_id, body)
 
 
 @router.delete("/{node_id}")
@@ -51,3 +42,12 @@ async def delete_node(
         _=Depends(require_admin),
 ):
     await controller.delete_node(node_id)
+
+
+@router.get("/passage/{passage_id}", response_model=Optional[BossNodeRead], description="Get passage boss node")
+async def get_boss(
+        passage_id: int,
+        controller: PassageNodeController = Depends(get_passage_node_controller),
+        _=Depends(require_admin),
+):
+    return await controller.get_boss(passage_id)
