@@ -329,3 +329,7 @@ PROMPTS = {
            }
     """
 }
+
+STATUS_LOCKED = "locked"
+STATUS_AVAILABLE = "available"
+STATUS_COMPLETED = "completed"
