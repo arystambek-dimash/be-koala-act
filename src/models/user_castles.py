@@ -10,8 +10,9 @@ class UserCastle(Base):
     __tablename__ = 'user_castles'
 
     id: orm.Mapped[int] = orm.mapped_column(sa.Integer, primary_key=True)
-    user_id: orm.Mapped[int] = orm.mapped_column(sa.ForeignKey('users.id', ondelete='CASCADE'), unique=True)
-    castle_id: orm.Mapped[int] = orm.mapped_column(sa.ForeignKey('buildings.id', ondelete='CASCADE'))
+    user_id: orm.Mapped[int] = orm.mapped_column(sa.ForeignKey('users.id', ondelete='CASCADE'))
+    castle_id = orm.mapped_column(sa.ForeignKey("buildings.id", ondelete="RESTRICT"), nullable=False)
+
     treasure_amount: orm.Mapped[int] = orm.mapped_column(sa.Integer, default=0)
     last_collect_date: orm.Mapped[datetime] = orm.mapped_column(sa.DateTime(timezone=True), nullable=True)
 
@@ -20,3 +21,5 @@ class UserCastle(Base):
     last_tap_reset_date: orm.Mapped[date] = orm.mapped_column(sa.Date, nullable=True)
 
     castle = orm.relationship("Building", foreign_keys=[castle_id])
+
+    __table_args__ = (sa.UniqueConstraint("user_id", name="uq_user_castles_user"),)

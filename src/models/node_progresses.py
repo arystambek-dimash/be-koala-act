@@ -12,7 +12,7 @@ class UserNodeProgress(Base):
 
     id: orm.Mapped[int] = orm.mapped_column(sa.Integer, primary_key=True)
     node_id: orm.Mapped[int] = orm.mapped_column(
-        sa.ForeignKey('roadmap_nodes.id', ondelete='CASCADE'),
+        sa.ForeignKey('nodes.id', ondelete='CASCADE'),
         index=True,
     )
     user_id: orm.Mapped[int] = orm.mapped_column(
