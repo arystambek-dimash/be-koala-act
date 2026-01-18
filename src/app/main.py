@@ -20,6 +20,7 @@ from src.presentations.routers import (
     questions,
     roadmaps,
     users,
+    submits
 )
 
 
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
     v1_api.include_router(collectors.router)
     v1_api.include_router(progression.router)
     v1_api.include_router(roadmaps.router)
+    v1_api.include_router(submits.router)
 
     # Content management routers (Admin + Public read)
     v1_api.include_router(buildings.router)
