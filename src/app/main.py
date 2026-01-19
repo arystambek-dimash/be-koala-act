@@ -76,12 +76,16 @@ app = create_app()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://fe-koala-admin.vercel.app",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://45.55.248.29.sslip.io"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
