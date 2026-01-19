@@ -80,17 +80,18 @@ app.add_middleware(
         "https://fe-koala-admin.vercel.app",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://45.55.248.29.sslip.io"
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+is_prod = not settings.DEBUG
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
-    same_site="lax" if settings.DEBUG else "none",
-    https_only=False if settings.DEBUG else True,
+    same_site="none" if is_prod else "lax",
+    https_only=True if is_prod else False,
 )
 
 

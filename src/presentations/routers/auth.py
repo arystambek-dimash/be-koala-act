@@ -44,17 +44,14 @@ async def auth_google_callback(
         })
         return RedirectResponse(url=f"{scheme}://auth/callback?{params}")
 
-    same_site = getattr(settings, "COOKIE_SAMESITE", "lax")  # "lax" | "none"
-    secure = getattr(settings, "COOKIE_SECURE", False)  # True в prod (https)
-
     redirect = RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard", status_code=302)
 
     redirect.set_cookie(
         key="access_token",
         value=result["access_token"],
         httponly=True,
-        secure=secure,
-        samesite=same_site,
+        secure=True,
+        samesite="none",
         path="/",
         max_age=60 * 15,
     )
@@ -62,8 +59,8 @@ async def auth_google_callback(
         key="refresh_token",
         value=result["refresh_token"],
         httponly=True,
-        secure=secure,
-        samesite=same_site,
+        secure=True,
+        samesite="none",
         path="/",
         max_age=60 * 60 * 24 * 30,
     )
