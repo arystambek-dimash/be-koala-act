@@ -42,7 +42,7 @@ async def auth_google_callback(
             "user_id": result["user"]["id"],
             "email": result["user"]["email"],
         })
-        return RedirectResponse(url=f"{scheme}://auth/callback?{params}")
+        return RedirectResponse(url=f"{scheme}?params={params}")
 
     redirect = RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard", status_code=302)
 
