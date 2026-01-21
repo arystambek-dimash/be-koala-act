@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
 
     class Config:
+        extra = "ignore"
         env_file = BASE_DIR / ".env"
 
     @property
@@ -58,6 +59,7 @@ class Settings(BaseSettings):
             self.POSTGRES_PORT,
             self.POSTGRES_DB
         )
+
 
 
 settings = Settings()
