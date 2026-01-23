@@ -1,9 +1,10 @@
 from typing import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from src.models.node_progresses import UserNodeProgress
+from src.models.nodes import PassageNode
 from src.models.passages import Passage
 from src.repositories.base import BaseRepository
 from src.repositories.utils_repositories import UtilsRepository
@@ -114,3 +115,36 @@ class PassageRepository(BaseRepository[Passage], UtilsRepository):
             response_passages.append(passage_data)
 
         return response_passages
+
+    async def get_next_passages(
+            self,
+            user_id: int,
+            village_id: int,
+    ):
+        user_current_passage_id = await self._session.scalar(
+            select(func.max(PassageNode.passage_id))
+            .where(PassageNode.user_id == user_id)
+            .join(
+                Passage,
+                Passage.village_id == village_id,
+            )
+        )
+
+        if not user_current_passage_id:
+            stmt = (
+                select(Passage)
+                .where(Passage.village_id == village_id)
+                .order_by(Passage.order_index.asc())
+            )
+
+        else:
+            stmt = (
+                select(Passage)
+                .where(
+                    Passage.id > user_current_passage_id
+                )
+                .order_by(Passage.order_index.asc())
+            )
+        result = await self._session.execute(stmt)
+        passages = result.scalars().all()
+        return passages

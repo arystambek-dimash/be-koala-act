@@ -79,3 +79,16 @@ class PassageController:
                 fk_id=village_id,
             )
         return await self._passage_repository.village_passages(village_id)
+
+    async def get_next_passages(
+            self,
+            user_id: int,
+            village_id: int,
+            limit: int = 5,
+    ):
+        village = await self._building_repository.get_by_id(village_id)
+        if not village:
+            raise NotFoundException(f"Village with id {village_id} not found")
+
+        passages = await self._passage_repository.get_next_passages(user_id, village_id, limit)
+        return passages
