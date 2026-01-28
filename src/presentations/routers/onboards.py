@@ -2,6 +2,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends
 
+from src.app.constants import SubjectEnum
 from src.controllers import PassageController
 from src.controllers.onboards import OnboardController
 from src.controllers.subject_onboard import SubjectOnboardController
@@ -38,7 +39,8 @@ async def subject_onboard(
 
 @router.get("/passages", description="Get User Next Passages to onboard")
 async def get_passages(
+        subject: SubjectEnum,
         current_user=Depends(get_current_user),
         controller: PassageController = Depends(get_passage_controller),
 ):
-    return await controller.get_next_passages(user_id=current_user.id)
+    return await controller.get_next_passages(user_id=current_user.id, subject=subject)

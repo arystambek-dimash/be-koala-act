@@ -1,5 +1,6 @@
 from typing import Sequence
 
+from src.app.constants import SubjectEnum
 from src.app.errors import BadRequestException, NotFoundException
 from src.app.uow import UoW
 from src.models.passages import Passage
@@ -83,6 +84,7 @@ class PassageController:
     async def get_next_passages(
             self,
             user_id: int,
+            subject: SubjectEnum
     ):
-        passages = await self._passage_repository.get_next_passages(user_id)
+        passages = await self._passage_repository.get_next_passages(user_id, subject)
         return passages

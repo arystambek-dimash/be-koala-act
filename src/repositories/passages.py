@@ -3,7 +3,7 @@ from typing import Sequence
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
-from src.app.constants import BuildingType
+from src.app.constants import BuildingType, SubjectEnum
 from src.models.buildings import Building
 from src.models.node_progresses import UserNodeProgress
 from src.models.nodes import PassageNode
@@ -121,22 +121,27 @@ class PassageRepository(BaseRepository[Passage], UtilsRepository):
 
     async def get_next_passages(
             self,
-            user_id: int
+            user_id: int,
+            subject: SubjectEnum
     ):
         user_current_village_id = await self._session.scalar(
-            select(
-                UserVillage.village_id
-            ).where(
-                UserVillage.user_id == user_id
+            select(UserVillage.village_id)
+            .join(Building, Building.id == UserVillage.village_id)
+            .where(
+                UserVillage.user_id == user_id,
+                Building.type == BuildingType.VILLAGE,
+                Building.subject == subject,
             )
         )
         if user_current_village_id is None:
             user_current_village_id = await self._session.scalar(
                 select(Building.id)
                 .where(
-                    Building.type == BuildingType.VILLAGE
+                    Building.type == BuildingType.VILLAGE,
+                    Building.subject == subject,
                 )
                 .order_by(Building.id.asc())
+                .limit(1)
             )
         user_current_passage_id = await self._session.scalar(
             select(func.max(PassageNode.passage_id))
