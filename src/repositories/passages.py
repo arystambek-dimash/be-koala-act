@@ -3,9 +3,12 @@ from typing import Sequence
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
+from src.app.constants import BuildingType
+from src.models.buildings import Building
 from src.models.node_progresses import UserNodeProgress
 from src.models.nodes import PassageNode
 from src.models.passages import Passage
+from src.models.user_villages import UserVillage
 from src.repositories.base import BaseRepository
 from src.repositories.utils_repositories import UtilsRepository
 
@@ -118,22 +121,36 @@ class PassageRepository(BaseRepository[Passage], UtilsRepository):
 
     async def get_next_passages(
             self,
-            user_id: int,
-            village_id: int,
+            user_id: int
     ):
+        user_current_village_id = await self._session.scalar(
+            select(
+                UserVillage.village_id
+            ).where(
+                UserVillage.user_id == user_id
+            )
+        )
+        if user_current_village_id is None:
+            user_current_village_id = await self._session.scalar(
+                select(Building.id)
+                .where(
+                    Building.type == BuildingType.VILLAGE
+                )
+                .order_by(Building.id.asc())
+            )
         user_current_passage_id = await self._session.scalar(
             select(func.max(PassageNode.passage_id))
             .where(PassageNode.user_id == user_id)
             .join(
                 Passage,
-                Passage.village_id == village_id,
+                Passage.village_id == user_current_village_id,
             )
         )
 
         if not user_current_passage_id:
             stmt = (
                 select(Passage)
-                .where(Passage.village_id == village_id)
+                .where(Passage.village_id == user_current_village_id)
                 .order_by(Passage.order_index.asc())
             )
 

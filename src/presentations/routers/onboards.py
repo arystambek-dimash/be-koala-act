@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends
 
 from src.controllers import PassageController
@@ -10,13 +12,13 @@ from src.presentations.depends import (
 )
 from src.presentations.schemas.onboards import (
     OnboardCreate,
-    SingleSubjectOnboard,
+    SingleSubjectOnboard, OnboardResponse,
 )
 
 router = APIRouter(prefix="/onboards", tags=["Onboards"])
 
 
-@router.post("/user/acquaintance")
+@router.post("/user/acquaintance", response_model=List[OnboardResponse])
 async def user_acquaintance(
         data: OnboardCreate,
         onboard_controller: OnboardController = Depends(get_onboard_controller),
@@ -34,10 +36,9 @@ async def subject_onboard(
     return await controller.execute(current_user, data)
 
 
-@router.get("/passages/{village_id}", description="Get User Next Passages to onboard")
+@router.get("/passages", description="Get User Next Passages to onboard")
 async def get_passages(
-        village_id: int,
         current_user=Depends(get_current_user),
         controller: PassageController = Depends(get_passage_controller),
 ):
-    return await controller.get_next_passages(user_id=current_user.id, village_id=village_id)
+    return await controller.get_next_passages(user_id=current_user.id)

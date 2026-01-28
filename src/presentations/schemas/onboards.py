@@ -44,3 +44,9 @@ class PassageOnboardPreview(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class OnboardResponse(BaseModel):
+    subject: str
+    score: int
+    level: str
