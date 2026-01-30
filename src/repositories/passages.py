@@ -36,7 +36,7 @@ class PassageRepository(BaseRepository[Passage], UtilsRepository):
         return (await self._session.execute(stmt)).scalars().all()
 
     async def get_roadmap(self, user_id, village_id):
-        stmt = select(Passage).where(Passage.village_id == village_id).order_by(Passage.order_index)
+        stmt = select(Passage).where(Passage.village_id == village_id).options(selectinload(Passage.nodes)).order_by(Passage.order_index)
         passages = (await self._session.execute(stmt)).scalars().all()
         progress_stmt = select(UserNodeProgress).where(UserNodeProgress.user_id == user_id)
         user_progress_list = (await self._session.execute(progress_stmt)).scalars().all()

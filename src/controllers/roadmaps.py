@@ -104,7 +104,7 @@ class RoadmapController:
         pydantic_model.questions = [QuestionRead.model_validate(question) for question in db_node.questions]
         return pydantic_model
 
-    async def get_roadmap(self, subject: str, user_id: int, limit: int = 5):
+    async def get_roadmap(self, subject: str, user_id: int):
         user_villages = await self.village_repository.get_user_villages(user_id)
         village_id = None
         for v in user_villages:

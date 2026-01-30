@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from src.controllers.roadmaps import RoadmapController
 from src.presentations.depends import get_current_user, get_roadmap_controller
@@ -10,14 +10,12 @@ router = APIRouter(prefix="/roadmaps", tags=["Roadmaps"])
 @router.get("/{subject}")
 async def get_roadmap(
         subject: str,
-        limit: int = Query(default=5, ge=1, le=20),
         controller: RoadmapController = Depends(get_roadmap_controller),
         current_user=Depends(get_current_user),
 ):
     return await controller.get_roadmap(
         subject=subject,
-        user_id=current_user.id,
-        limit=limit,
+        user_id=current_user.id
     )
 
 
