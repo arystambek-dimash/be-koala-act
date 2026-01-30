@@ -183,6 +183,7 @@ async def get_onboard_controller(
         user_castle_repository: UserCastleRepository = Depends(get_user_castle_repository),
         user_village_repository: UserVillageRepository = Depends(get_user_village_repository),
         node_generator: PassageNodeGenerator = Depends(get_passage_node_generator),
+        node_repository: PassageNodeRepository = Depends(get_passage_node_repository),
 ) -> OnboardController:
     return OnboardController(
         uow=uow,
@@ -192,6 +193,7 @@ async def get_onboard_controller(
         user_castle_repository=user_castle_repository,
         user_village_repository=user_village_repository,
         node_generator=node_generator,
+        node_repository=node_repository,
     )
 
 
