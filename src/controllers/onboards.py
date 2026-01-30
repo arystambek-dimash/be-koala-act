@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timezone
 from typing import List, Any
 
 from src.app.constants import SubjectEnum
@@ -45,6 +46,8 @@ class OnboardController:
             db_castle = await self._building_repository.get_user_next_castle(
                 user.id
             )
+            if not db_castle:
+                raise BadRequestException("No castle default template found")
             await self._user_castle_repository.create(
                 user_id=user.id,
                 castle_id=db_castle.id,
