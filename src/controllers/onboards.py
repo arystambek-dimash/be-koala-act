@@ -118,7 +118,6 @@ class OnboardController:
 
         await self._user_village_repository.create(
             user_id=user_id,
-            subject=subject,
             village_id=db_village.id,
         )
         await self._node_generator.generate(passages)
