@@ -34,9 +34,18 @@ class UserController:
             raise NotFoundException("User castle is not found")
 
         user_villages = await self.village_repository.get_user_villages(user_id)
-        villages = [UserVillageRead.model_validate(village) for village in user_villages]
+        villages = [
+            UserVillageRead(
+                id=village.get("village_id"),
+                svg=village.get("village_svg"),
+                subject=village.get("village_subject"),
+                treasure_amount=village.get("treasure_amount"),
+                last_collect_date=village.get("last_collect_date"),
+                last_update_at=village.get("last_update_at"),
+                speed_production_treasure=village.get("speed_production_treasure"),
+            ) for village in user_villages]
         return UserCastleWithVillages(
-            id=user_castle.get("user_castle_id"),
+            id=user_castle.get("castle_id"),
             svg=user_castle.get("castle_svg"),
             treasure_amount=user_castle.get("treasure_amount"),
             last_collect_date=user_castle.get("last_collect_date"),

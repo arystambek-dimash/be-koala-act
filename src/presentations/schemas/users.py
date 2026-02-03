@@ -30,7 +30,6 @@ class UserUpdate(BaseModel):
 # --- Village schemas ---
 class UserVillageRead(BaseModel):
     id: int
-    village_id: int
     svg: Optional[str] = None
     subject: SubjectEnum
     treasure_amount: int
