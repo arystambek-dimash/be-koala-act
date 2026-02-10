@@ -99,7 +99,6 @@ class RoadmapController:
                     except Exception as e:
                         raise InternalServerException("Ai response error")
             db_node.questions = generated_questions
-
         pydantic_model = NodeDetailedRead.model_validate(db_node)
         pydantic_model.questions = [QuestionRead.model_validate(question) for question in db_node.questions]
         return pydantic_model

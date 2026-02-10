@@ -17,7 +17,10 @@ class PassageRepository(BaseRepository[Passage], UtilsRepository):
     model = Passage
 
     async def get_by_id(self, id: int) -> Passage | None:
-        stmt = select(Passage).where(Passage.id == id).options(selectinload(Passage.boss))
+        stmt = select(Passage).where(Passage.id == id).options(
+            selectinload(Passage.boss),
+            selectinload(Passage.village)
+        )
         result = await self._session.execute(stmt)
         passage = result.scalar_one_or_none()
         return passage
@@ -36,7 +39,9 @@ class PassageRepository(BaseRepository[Passage], UtilsRepository):
         return (await self._session.execute(stmt)).scalars().all()
 
     async def get_roadmap(self, user_id, village_id):
-        stmt = select(Passage).where(Passage.village_id == village_id).options(selectinload(Passage.nodes), selectinload(Passage.boss)).order_by(Passage.order_index)
+        stmt = select(Passage).where(Passage.village_id == village_id).options(selectinload(Passage.nodes),
+                                                                               selectinload(Passage.boss)).order_by(
+            Passage.order_index)
         passages = (await self._session.execute(stmt)).scalars().all()
         progress_stmt = select(UserNodeProgress).where(UserNodeProgress.user_id == user_id)
         user_progress_list = (await self._session.execute(progress_stmt)).scalars().all()
