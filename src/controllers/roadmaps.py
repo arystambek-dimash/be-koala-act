@@ -98,6 +98,7 @@ class RoadmapController:
                         try:
                             generated_questions.append(await self.question_repository.create(**mutable_dict))
                         except Exception as e:
+                            print(e)
                             raise InternalServerException("Ai response error")
                 db_node.questions = generated_questions
             pydantic_model = NodeDetailedRead.model_validate(db_node)
