@@ -87,6 +87,7 @@ class RoadmapController:
                         response_format=ListNodeRelationsResponse
                     )
                 except Exception as e:
+                    print(e)
                     raise InternalServerException("Ai response error")
 
                 async with self.uow:
