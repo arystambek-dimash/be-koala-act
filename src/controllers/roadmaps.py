@@ -95,6 +95,7 @@ class RoadmapController:
                         mutable_dict = q.model_dump()
                         mutable_dict["node_id"] = node_id
                         mutable_dict["content"] = q.content
+                        print(mutable_dict)
                         try:
                             generated_questions.append(await self.question_repository.create(**mutable_dict))
                         except Exception as e:
