@@ -53,55 +53,59 @@ class RoadmapController:
         self.openai_service = openai_service
 
     async def get_node(self, node_id: int):
-        db_node = await self.node_repository.get_by_id(node_id)
-        if not db_node:
-            raise NotFoundException("Node not found")
+        try:
+            db_node = await self.node_repository.get_by_id(node_id)
+            if not db_node:
+                raise NotFoundException("Node not found")
 
-        passage = await self.passage_repository.get_by_id(db_node.passage_id)
-        if not passage:
-            raise NotFoundException("Passage not found")
+            passage = await self.passage_repository.get_by_id(db_node.passage_id)
+            if not passage:
+                raise NotFoundException("Passage not found")
 
-        if not db_node.questions:
-            system_prompt = PROMPTS.get(passage.village.subject.value if passage.village else "english")
-            user_prompt = f"""
-                            GENERATE LESSON CONTENT:
-                            - **Title:** {db_node.title}
-                            - **Node Content:** {db_node.content or "General vocabulary"}
-                            - **Subject:** {passage.village.subject.value if passage.village else "english"}
-                            - **Passage:** {passage.title}
-                            """
+            if not db_node.questions:
+                system_prompt = PROMPTS.get(passage.village.subject.value if passage.village else "english")
+                user_prompt = f"""
+                                GENERATE LESSON CONTENT:
+                                - **Title:** {db_node.title}
+                                - **Node Content:** {db_node.content or "General vocabulary"}
+                                - **Subject:** {passage.village.subject.value if passage.village else "english"}
+                                - **Passage:** {passage.title}
+                                """
 
-            try:
-                response_json: ListNodeRelationsResponse = await self.openai_service.request(
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": system_prompt,
-                        },
-                        {
-                            "role": "user",
-                            "content": json.dumps(user_prompt, ensure_ascii=False),
-                        }
-                    ],
-                    response_format=ListNodeRelationsResponse
-                )
-            except Exception as e:
-                raise InternalServerException("Ai response error")
+                try:
+                    response_json: ListNodeRelationsResponse = await self.openai_service.request(
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": system_prompt,
+                            },
+                            {
+                                "role": "user",
+                                "content": json.dumps(user_prompt, ensure_ascii=False),
+                            }
+                        ],
+                        response_format=ListNodeRelationsResponse
+                    )
+                except Exception as e:
+                    raise InternalServerException("Ai response error")
 
-            async with self.uow:
-                generated_questions = []
-                for q in response_json.questions:
-                    mutable_dict = q.model_dump()
-                    mutable_dict["node_id"] = node_id
-                    mutable_dict["content"] = q.content
-                    try:
-                        generated_questions.append(await self.question_repository.create(**mutable_dict))
-                    except Exception as e:
-                        raise InternalServerException("Ai response error")
-            db_node.questions = generated_questions
-        pydantic_model = NodeDetailedRead.model_validate(db_node)
-        pydantic_model.questions = [QuestionRead.model_validate(question) for question in db_node.questions]
-        return pydantic_model
+                async with self.uow:
+                    generated_questions = []
+                    for q in response_json.questions:
+                        mutable_dict = q.model_dump()
+                        mutable_dict["node_id"] = node_id
+                        mutable_dict["content"] = q.content
+                        try:
+                            generated_questions.append(await self.question_repository.create(**mutable_dict))
+                        except Exception as e:
+                            raise InternalServerException("Ai response error")
+                db_node.questions = generated_questions
+            pydantic_model = NodeDetailedRead.model_validate(db_node)
+            pydantic_model.questions = [QuestionRead.model_validate(question) for question in db_node.questions]
+            return pydantic_model
+        except Exception as e:
+            print(e)
+            raise e
 
     async def get_roadmap(self, subject: str, user_id: int):
         user_villages = await self.village_repository.get_user_villages(user_id)
