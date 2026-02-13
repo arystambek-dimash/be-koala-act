@@ -1,7 +1,7 @@
 import json
-from typing import Any, List
+from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from src.app.constants import PROMPTS, QuestionType
 from src.app.errors import NotFoundException, InternalServerException
@@ -23,7 +23,10 @@ from src.repositories import (
 class GeneratedQuestion(BaseModel):
     type: QuestionType
     text: str
-    content: dict[str, Any]
+    content: Dict[str, Any] = Field(
+        ...,
+        description="Question content object with structure depending on question type"
+    )
 
 
 class ListNodeRelationsResponse(BaseModel):
@@ -31,6 +34,21 @@ class ListNodeRelationsResponse(BaseModel):
         ...,
         description="List of generated questions for the lesson node"
     )
+
+
+def parse_ai_response(raw_response: str) -> ListNodeRelationsResponse:
+    content = raw_response.strip()
+
+    if content.startswith("```"):
+        lines = content.split("\n")
+        lines = lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
+        content = "\n".join(lines)
+
+    try:
+        data = json.loads(content)
+        return ListNodeRelationsResponse.model_validate(data)
+    except (json.JSONDecodeError, ValidationError) as e:
+        raise ValueError(f"Failed to parse AI response: {e}")
 
 
 class RoadmapController:
@@ -73,23 +91,36 @@ class RoadmapController:
                                 """
 
                 try:
-                    response_json: ListNodeRelationsResponse = await self.openai_service.request(
+                    json_instruction = """
+                    IMPORTANT: Return ONLY valid JSON in this exact format:
+                    {
+                        "questions": [
+                            {
+                                "type": "<question_type>",
+                                "text": "<question text>",
+                                "content": { <question-specific content> }
+                            }
+                        ]
+                    }
+                    Generate 3-5 questions. No markdown, no explanations, just pure JSON.
+                    """
+                    raw_response = await self.openai_service.request_raw(
                         messages=[
                             {
                                 "role": "system",
-                                "content": system_prompt,
+                                "content": system_prompt + json_instruction,
                             },
                             {
                                 "role": "user",
-                                "content": json.dumps(user_prompt, ensure_ascii=False),
+                                "content": user_prompt,
                             }
-                        ],
-                        response_format=ListNodeRelationsResponse
+                        ]
                     )
+                    response_json = parse_ai_response(raw_response)
                 except Exception as e:
                     print(e)
                     raise InternalServerException("Ai response error")
-
+                print(response_json)
                 async with self.uow:
                     generated_questions = []
                     for q in response_json.questions:

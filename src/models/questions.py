@@ -14,5 +14,6 @@ class Question(Base):
         index=True,
     )
     type: orm.Mapped[str] = orm.mapped_column(sa.String, nullable=False)
+    text: orm.Mapped[str] = orm.mapped_column(sa.String, nullable=False)
     content: orm.Mapped[dict[str, Any]] = orm.mapped_column(sa.JSON, nullable=False)
     order_index: orm.Mapped[int] = orm.mapped_column(sa.Integer, default=1)
