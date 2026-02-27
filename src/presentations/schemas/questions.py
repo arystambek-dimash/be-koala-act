@@ -66,13 +66,20 @@ class FillGapContent(BaseModel):
     explanation: str
 
 
-class MatchingPair(BaseModel):
-    left: str
-    right: str
+class MatchingItem(BaseModel):
+    id: str
+    text: str
+
+
+class MatchingCorrectPair(BaseModel):
+    left_id: str
+    right_id: str
 
 
 class MatchingContent(BaseModel):
-    pairs: List[MatchingPair]
+    left_items: List[MatchingItem]
+    right_items: List[MatchingItem]  # перемешанные на фронте
+    correct_pairs: List[MatchingCorrectPair]
 
 
 class GraphPointContent(BaseModel):

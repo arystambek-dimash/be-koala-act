@@ -8,20 +8,31 @@ class ExperienceRepository(BaseRepository[Experience]):
     model = Experience
 
     async def get_by_user_id(self, user_id: int) -> Experience | None:
-        stmt = select(Experience).where(Experience.user_id == user_id)
+        stmt = select(Experience).where(Experience.user_id == user_id).limit(1)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def add_xp(self, user_id: int, xp_amount: int) -> Experience:
         if xp_amount <= 0:
-            return await self.get_by_user_id(user_id)
+            exp = await self.get_by_user_id(user_id)
+            if exp:
+                return exp
+            # Create if not exists
+            return await self.create(user_id=user_id, level=1, current_xp=0)
 
         stmt = (
             select(Experience)
             .where(Experience.user_id == user_id)
+            .limit(1)
             .with_for_update()
         )
-        experience = (await self._session.execute(stmt)).scalar_one()
+        experience = (await self._session.execute(stmt)).scalar_one_or_none()
+
+        # Auto-create Experience if not exists
+        if not experience:
+            experience = Experience(user_id=user_id, level=1, current_xp=0)
+            self._session.add(experience)
+            await self._session.flush()
 
         from src.app.constants import MAX_LEVEL
 

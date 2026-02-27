@@ -242,9 +242,17 @@ PROMPTS = {
              "type": "matching",
              "text": "Match the equivalents.",
              "content": {
-               "pairs": [
-                 {"id": "1", "left": "$x^2 * x^3$", "right": "$x^5$"},
-                 {"id": "2", "left": "$(x^2)^3$", "right": "$x^6$"}
+               "left_items": [
+                 {"id": "l1", "text": "$x^2 * x^3$"},
+                 {"id": "l2", "text": "$(x^2)^3$"}
+               ],
+               "right_items": [
+                 {"id": "r1", "text": "$x^6$"},
+                 {"id": "r2", "text": "$x^5$"}
+               ],
+               "correct_pairs": [
+                 {"left_id": "l1", "right_id": "r2"},
+                 {"left_id": "l2", "right_id": "r1"}
                ]
              }
            }

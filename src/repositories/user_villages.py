@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select, update, and_
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, joinedload
 
 from src.app.constants import BuildingType
 from src.models.buildings import Building
@@ -12,6 +12,20 @@ from src.repositories.base import BaseRepository
 
 class UserVillageRepository(BaseRepository[UserVillage]):
     model = UserVillage
+
+    async def get_by_user_and_village(self, user_id: int, village_id: int) -> UserVillage | None:
+        """Get UserVillage with village relationship loaded."""
+        stmt = (
+            select(UserVillage)
+            .options(joinedload(UserVillage.village))
+            .where(
+                UserVillage.user_id == user_id,
+                UserVillage.village_id == village_id,
+            )
+            .limit(1)
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def get_user_villages(self, user_id: int) -> list[dict[str, Any]]:
         Next = aliased(Building)

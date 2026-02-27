@@ -1,0 +1,551 @@
+================================================================================
+                    KOALA ACT - ЗАЩИТА ПРОЕКТА
+                    Backend Documentation
+================================================================================
+
+================================================================================
+1. ОБЩЕЕ ОПИСАНИЕ ПРОЕКТА
+================================================================================
+
+Название: Koala ACT
+Тип: Образовательное мобильное приложение для подготовки к ACT/SAT экзаменам
+
+Основная идея:
+- Геймифицированная платформа для изучения English, Reading, Math, Science
+- Пользователь строит "королевство" из замков и деревень
+- Каждая деревня соответствует предмету (English, Reading, Math, Science)
+- Прохождение уроков приносит монеты и кристаллы
+- ИИ (OpenAI GPT-4o-mini) генерирует персонализированные вопросы
+
+================================================================================
+2. ТЕХНОЛОГИЧЕСКИЙ СТЕК
+================================================================================
+
+Backend Framework:
+- FastAPI 0.128.0 - современный асинхронный Python веб-фреймворк
+- Uvicorn - ASGI сервер
+
+База данных:
+- PostgreSQL 16 - основная СУБД
+- SQLAlchemy 2.0 - ORM для работы с БД
+- Alembic - миграции базы данных
+- AsyncPG - асинхронный драйвер PostgreSQL
+
+Аутентификация:
+- Google OAuth 2.0 (через Authlib)
+- JWT токены (python-jose) - Access + Refresh tokens
+- Passlib (bcrypt) - хеширование паролей
+
+Внешние сервисы:
+- OpenAI API (GPT-4o-mini) - генерация вопросов
+- Cloudflare R2 (S3-совместимое хранилище) - хранение SVG файлов
+
+Инфраструктура:
+- Docker + Docker Compose
+- Nginx - reverse proxy с SSL (Let's Encrypt)
+- Poetry - управление зависимостями Python
+
+================================================================================
+3. АРХИТЕКТУРА ПРОЕКТА (Clean Architecture)
+================================================================================
+
+Проект построен по принципам чистой архитектуры с разделением на слои:
+
+/src
+├── /app              # Ядро приложения (конфигурация, утилиты)
+│   ├── main.py       # Точка входа FastAPI
+│   ├── config.py     # Настройки из .env
+│   ├── database.py   # Настройка SQLAlchemy
+│   ├── uow.py        # Unit of Work паттерн
+│   └── utils.py      # JWT утилиты
+│
+├── /models           # SQLAlchemy модели (Entity Layer)
+│   ├── users.py
+│   ├── buildings.py
+│   ├── passages.py
+│   ├── nodes.py
+│   ├── questions.py
+│   └── ...
+│
+├── /repositories     # Слой доступа к данным (Repository Pattern)
+│   ├── base.py
+│   ├── users.py
+│   ├── buildings.py
+│   └── ...
+│
+├── /controllers      # Бизнес-логика (Use Case Layer)
+│   ├── auths.py
+│   ├── buildings.py
+│   ├── roadmaps.py
+│   └── ...
+│
+└── /presentations    # Представление (API Layer)
+    ├── /routers      # FastAPI роутеры
+    ├── /schemas      # Pydantic схемы (DTO)
+    └── depends.py    # Dependency Injection
+
+================================================================================
+4. МОДЕЛИ ДАННЫХ (DATABASE SCHEMA)
+================================================================================
+
+4.1 User (Пользователь)
+------------------------
+- id: int (PK)
+- email: str (unique)
+- full_name: str
+- current_score: int (текущий балл ACT)
+- target_score: int (целевой балл)
+- exam_date: datetime (дата экзамена)
+- has_onboard: bool (прошел онбординг)
+- is_admin: bool
+
+4.2 Building (Здание - Замок или Деревня)
+-----------------------------------------
+- id: int (PK)
+- title: str
+- svg: str (URL картинки)
+- treasure_capacity: int (максимум сокровищ)
+- speed_production_treasure: int (скорость генерации)
+- cost: int (стоимость апгрейда)
+- subject: enum (english/reading/math/science) - только для деревень
+- type: enum (village/castle)
+- next_building_id: FK -> buildings.id (связанный список для апгрейдов)
+
+Ограничения:
+- Деревня обязательно имеет subject
+- Замок НЕ имеет subject
+- next_building не может ссылаться на себя
+
+4.3 Passage (Раздел/Тема)
+-------------------------
+- id: int (PK)
+- village_id: FK -> buildings.id
+- title: str
+- order_index: int (порядок отображения)
+
+4.4 PassageNode (Урок/Нода)
+---------------------------
+- id: int (PK)
+- passage_id: FK -> passages.id
+- user_id: FK -> users.id (NULL = общая нода)
+- title: str
+- content: text (контент урока)
+- is_boss: bool (финальный тест раздела)
+- config: JSON
+- pass_score: int (минимальный балл для прохождения)
+- reward_coins: int
+- reward_xp: int
+
+Особенности:
+- user_id = NULL -> общая нода (шаблон)
+- user_id != NULL -> персональная нода
+- is_boss = true -> только для общих нод
+- Один босс на passage (уникальный индекс)
+
+4.5 Question (Вопрос)
+---------------------
+- id: int (PK)
+- node_id: FK -> nodes.id
+- type: str (тип вопроса)
+- text: str (текст вопроса)
+- content: JSON (структура вопроса)
+- order_index: int
+
+Типы вопросов:
+English/Reading: multiple_choice, find_error, strike_out, ordering, highlight
+Math: fill_gap, matching, graph_point
+Science: trend_arrow, slider_value, swipe_decision
+
+4.6 Wallet (Кошелек)
+--------------------
+- id: int (PK)
+- user_id: FK -> users.id
+- fund: int (количество)
+- fund_type: enum (coin/crystal)
+
+4.7 UserVillage (Связь юзер-деревня)
+------------------------------------
+- id: int (PK)
+- user_id: FK -> users.id
+- village_id: FK -> buildings.id
+- treasure_amount: int (накопленные сокровища)
+- last_collect_date: datetime
+
+4.8 UserCastle (Связь юзер-замок)
+---------------------------------
+- id: int (PK)
+- user_id: FK -> users.id
+- castle_id: FK -> buildings.id
+- treasure_amount: int
+- taps_used_today: int (система тапов)
+- last_tap_reset_date: date
+
+4.9 Experience (Опыт пользователя)
+----------------------------------
+- id: int (PK)
+- user_id: FK -> users.id
+- level: int (1-5)
+- current_xp: int
+
+4.10 UserNodeProgress (Прогресс по урокам)
+------------------------------------------
+- id: int (PK)
+- node_id: FK -> nodes.id
+- user_id: FK -> users.id
+- accuracy: float (точность ответов)
+- xp: float (заработанный опыт)
+- correct_answer: int
+
+================================================================================
+5. API ENDPOINTS
+================================================================================
+
+5.1 Аутентификация (/api/v1/auth)
+---------------------------------
+GET  /google          - Инициация OAuth (редирект на Google)
+GET  /google/callback - Callback от Google (создание/вход)
+POST /logout          - Выход (удаление cookies)
+
+5.2 Пользователи (/api/v1/users)
+--------------------------------
+GET  /me              - Получить текущего пользователя
+PUT  /me              - Обновить профиль
+
+5.3 Онбординг (/api/v1/onboards)
+--------------------------------
+POST /                - Пройти онбординг (выбор предметов, уровней)
+
+5.4 Здания (/api/v1/buildings)
+------------------------------
+GET    /castles           - Список замков (для юзера)
+GET    /villages          - Список деревень (для юзера)
+POST   /castles           - [ADMIN] Создать замок
+POST   /villages          - [ADMIN] Создать деревню
+PUT    /{id}              - [ADMIN] Обновить здание
+DELETE /{id}              - [ADMIN] Удалить здание
+
+5.5 Passages (/api/v1/passages)
+-------------------------------
+GET  /{village_id}        - Passages для деревни
+POST /                    - [ADMIN] Создать passage
+PUT  /{id}                - [ADMIN] Обновить
+DELETE /{id}              - [ADMIN] Удалить
+
+5.6 Nodes (/api/v1/nodes)
+-------------------------
+GET  /{passage_id}        - Ноды для passage
+POST /                    - [ADMIN] Создать ноду
+PUT  /{id}                - [ADMIN] Обновить
+DELETE /{id}              - [ADMIN] Удалить
+
+5.7 Questions (/api/v1/questions)
+---------------------------------
+GET  /{node_id}           - Вопросы для ноды
+POST /                    - [ADMIN] Создать вопрос
+PUT  /{id}                - [ADMIN] Обновить
+DELETE /{id}              - [ADMIN] Удалить
+
+5.8 Roadmap (/api/v1/roadmaps)
+------------------------------
+GET /{subject}            - Получить roadmap по предмету
+GET /nodes/{node_id}      - Получить детали ноды (+ генерация вопросов AI)
+
+5.9 Submits (/api/v1/submits)
+-----------------------------
+POST /                    - Отправить ответы на вопросы
+
+5.10 Collectors (/api/v1/collectors)
+------------------------------------
+GET  /castle/status       - Статус замка (сокровища, тапы)
+POST /castle/collect      - Собрать сокровища замка
+POST /castle/tap          - Тапнуть (заработать монеты)
+GET  /village/{id}/status - Статус деревни
+POST /village/{id}/collect - Собрать сокровища деревни
+
+5.11 Progression (/api/v1/progression)
+--------------------------------------
+GET  /castle/upgrade-info      - Инфо об апгрейде замка
+POST /castle/upgrade           - Улучшить замок
+GET  /village/{subject}/upgrade-info
+POST /village/{subject}/upgrade
+
+================================================================================
+6. КЛЮЧЕВЫЕ БИЗНЕС-ПРОЦЕССЫ
+================================================================================
+
+6.1 Аутентификация (OAuth 2.0)
+------------------------------
+1. Юзер нажимает "Войти через Google"
+2. Backend редиректит на Google OAuth
+3. Юзер авторизуется в Google
+4. Google редиректит на /auth/google/callback
+5. Backend получает user info (email, name)
+6. Если юзер не существует - создается новый
+7. Генерируются JWT токены (access + refresh)
+8. Web: токены в httpOnly cookies
+   Mobile: токены в URL параметрах (deep link)
+
+6.2 Онбординг
+-------------
+1. Новый юзер проходит опрос:
+   - Текущий балл ACT
+   - Целевой балл
+   - Дата экзамена
+   - Для каждого предмета: самооценка по темам
+2. Backend создает:
+   - UserCastle (начальный замок)
+   - UserVillage для каждого выбранного предмета
+3. AI генерирует персональные ноды на основе уровня
+
+6.3 Генерация вопросов (AI)
+---------------------------
+1. Юзер открывает урок (ноду)
+2. Если вопросов нет - запускается генерация
+3. Backend формирует промпт с:
+   - Темой урока
+   - Предметом
+   - Контекстом passage
+4. OpenAI GPT-4o-mini генерирует 3-5 вопросов
+5. Вопросы сохраняются в БД
+6. При повторном открытии - возвращаются из БД
+
+6.4 Система проверки ответов
+----------------------------
+1. Юзер отвечает на вопросы в ноде
+2. Frontend отправляет массив ответов
+3. Backend проверяет каждый ответ по типу:
+   - multiple_choice: сравнение выбранных ID
+   - fill_gap: точное совпадение
+   - matching: совпадение пар
+   - graph_point: попадание в радиус
+   - и т.д.
+4. Вычисляется accuracy (0.0 - 1.0)
+5. Создается/обновляется UserNodeProgress
+6. Возвращается earned_xp, accuracy, correct_answers
+
+6.5 Система экономики (Coins & Crystals)
+----------------------------------------
+Монеты (Coins):
+- Зарабатываются в деревнях
+- Генерируются со временем (speed_production_treasure)
+- Можно собирать (collect)
+- Тратятся на апгрейд деревень
+
+Кристаллы (Crystals):
+- Зарабатываются в замке
+- Также генерируются со временем
+- Тратятся на апгрейд замка
+
+Tap система:
+- 10 тапов в день
+- 5 монет за тап
+- Сбрасывается в полночь UTC
+
+================================================================================
+7. ПАТТЕРНЫ ПРОЕКТИРОВАНИЯ
+================================================================================
+
+7.1 Repository Pattern
+----------------------
+Изолирует доступ к данным от бизнес-логики.
+Каждая сущность имеет свой репозиторий:
+- BaseRepository - базовые CRUD операции
+- UserRepository, BuildingRepository и т.д.
+
+Пример:
+```python
+class UserRepository(BaseRepository):
+    async def get_by_email(self, email: str):
+        return await self._session.scalar(
+            select(User).where(User.email == email)
+        )
+```
+
+7.2 Unit of Work
+----------------
+Группирует операции с БД в транзакцию:
+```python
+async with self.uow:
+    await self.user_repository.create(...)
+    await self.wallet_repository.create(...)
+# commit происходит автоматически
+```
+
+7.3 Dependency Injection
+------------------------
+FastAPI Depends для внедрения зависимостей:
+```python
+@router.get("/me")
+async def get_me(
+    current_user = Depends(get_current_user),
+    controller = Depends(get_user_controller),
+):
+    ...
+```
+
+7.4 Factory Pattern
+-------------------
+Контроллеры создаются через фабрики в depends.py:
+```python
+async def get_user_controller(
+    uow = Depends(get_uow),
+    user_repo = Depends(get_user_repository),
+):
+    return UserController(uow=uow, user_repo=user_repo)
+```
+
+================================================================================
+8. БЕЗОПАСНОСТЬ
+================================================================================
+
+8.1 Аутентификация
+------------------
+- JWT токены с HS256 подписью
+- Access token: 5 часов
+- Refresh token: 7 дней
+- httpOnly cookies для web (защита от XSS)
+
+8.2 Авторизация
+---------------
+- require_admin dependency для админских эндпоинтов
+- Проверка is_admin в контроллерах
+
+8.3 CORS
+--------
+- Whitelist origins (localhost, production frontend)
+- allow_credentials=True для cookies
+
+8.4 Хранение секретов
+---------------------
+- Все секреты в .env файле
+- .env в .gitignore
+- Pydantic Settings для валидации
+
+================================================================================
+9. ИНФРАСТРУКТУРА И ДЕПЛОЙ
+================================================================================
+
+9.1 Docker Compose
+------------------
+Сервисы:
+- backend: FastAPI приложение
+- database: PostgreSQL 16
+- nginx: Reverse proxy
+
+9.2 Процесс деплоя
+------------------
+1. docker-compose build
+2. docker-compose up -d
+3. Alembic миграции запускаются автоматически при старте
+
+9.3 SSL/HTTPS
+-------------
+- Let's Encrypt сертификаты
+- Nginx терминирует SSL
+- HTTP -> HTTPS редирект
+
+================================================================================
+10. ВОЗМОЖНЫЕ ВОПРОСЫ НА ЗАЩИТЕ И ОТВЕТЫ
+================================================================================
+
+Q: Почему выбран FastAPI?
+A: Асинхронность, автоматическая документация (Swagger), типизация,
+   высокая производительность, простая интеграция с Pydantic.
+
+Q: Почему PostgreSQL?
+A: Надежность, поддержка JSON, partial indexes, отличная поддержка
+   в SQLAlchemy. Используем asyncpg для асинхронной работы.
+
+Q: Как работает генерация вопросов?
+A: Используем OpenAI GPT-4o-mini с специальными промптами для
+   каждого предмета. Вопросы генерируются один раз и кэшируются в БД.
+
+Q: Как обеспечивается безопасность?
+A: JWT токены, httpOnly cookies, CORS whitelist, bcrypt хеширование,
+   разделение прав (admin/user), SQL injection защита через ORM.
+
+Q: Почему используется Unit of Work?
+A: Для группировки связанных операций в одну транзакцию.
+   Гарантирует консистентность данных.
+
+Q: Как масштабировать систему?
+A: Горизонтальное масштабирование backend контейнеров,
+   read replicas для PostgreSQL, Redis для кэширования.
+
+Q: Почему Cloudflare R2?
+A: S3-совместимое хранилище без egress fees,
+   дешевле AWS S3, CDN из коробки.
+
+Q: Как обрабатываются ошибки?
+A: Кастомные исключения (BaseError), глобальный exception handler,
+   правильные HTTP статус коды (400, 401, 403, 404, 500).
+
+================================================================================
+11. СТРУКТУРА ФАЙЛОВ ПРОЕКТА
+================================================================================
+
+be-koala-act/
+├── Dockerfile                  # Docker образ
+├── docker-compose.yaml         # Оркестрация контейнеров
+├── pyproject.toml              # Зависимости Python
+├── alembic.ini                 # Конфиг Alembic
+├── .env                        # Переменные окружения
+├── nginx/
+│   └── nginx.conf              # Конфиг Nginx
+├── migrations/
+│   ├── env.py                  # Настройка Alembic
+│   └── versions/               # Миграции БД
+├── scripts/
+│   └── seed_admin.py           # Скрипт создания админа
+└── src/
+    ├── app/
+    │   ├── main.py             # FastAPI app
+    │   ├── config.py           # Pydantic Settings
+    │   ├── database.py         # SQLAlchemy setup
+    │   ├── uow.py              # Unit of Work
+    │   ├── utils.py            # JWT helpers
+    │   ├── constants.py        # Enums, prompts
+    │   ├── errors.py           # Custom exceptions
+    │   ├── openai_service.py   # OpenAI client
+    │   ├── cloudflare_r2.py    # R2 storage
+    │   └── passage_node_generator.py
+    ├── models/                 # SQLAlchemy models
+    ├── repositories/           # Data access layer
+    ├── controllers/            # Business logic
+    └── presentations/
+        ├── routers/            # API endpoints
+        ├── schemas/            # Pydantic DTOs
+        └── depends.py          # DI factories
+
+================================================================================
+12. КОМАНДЫ ДЛЯ ЗАПУСКА
+================================================================================
+
+Разработка:
+```bash
+# Установка зависимостей
+poetry install
+
+# Запуск БД
+docker-compose up database -d
+
+# Миграции
+alembic upgrade head
+
+# Запуск сервера
+uvicorn src.app.main:app --reload
+```
+
+Production:
+```bash
+docker-compose up -d --build
+```
+
+Создание миграции:
+```bash
+alembic revision --autogenerate -m "description"
+```
+
+================================================================================
+                         УДАЧНОЙ ЗАЩИТЫ!
+================================================================================

@@ -2,7 +2,7 @@ from datetime import datetime, timezone, date
 from typing import Any
 
 from sqlalchemy import select, update
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, joinedload
 
 from src.app.constants import BuildingType
 from src.models.buildings import Building
@@ -12,6 +12,27 @@ from src.repositories.base import BaseRepository
 
 class UserCastleRepository(BaseRepository[UserCastle]):
     model = UserCastle
+
+    async def get_by_user_id(self, user_id: int) -> UserCastle | None:
+        """Get UserCastle by user_id."""
+        stmt = (
+            select(UserCastle)
+            .where(UserCastle.user_id == user_id)
+            .limit(1)
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_by_user_id_with_castle(self, user_id: int) -> UserCastle | None:
+        """Get UserCastle with castle relationship loaded."""
+        stmt = (
+            select(UserCastle)
+            .options(joinedload(UserCastle.castle))
+            .where(UserCastle.user_id == user_id)
+            .limit(1)
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def get_user_castle(self, user_id: int) -> dict[str, Any] | None:
         Next = aliased(Building)

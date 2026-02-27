@@ -13,7 +13,10 @@ from src.repositories import (
     PassageRepository,
     UserCastleRepository,
     UserRepository,
-    UserVillageRepository, PassageNodeRepository,
+    UserVillageRepository,
+    PassageNodeRepository,
+    ExperienceRepository,
+    WalletRepository,
 )
 
 
@@ -28,6 +31,8 @@ class OnboardController:
             user_village_repository: UserVillageRepository,
             node_repository: PassageNodeRepository,
             node_generator: PassageNodeGenerator,
+            experience_repository: ExperienceRepository,
+            wallet_repository: WalletRepository,
     ):
         self._uow = uow
         self._user_repository = user_repository
@@ -37,21 +42,35 @@ class OnboardController:
         self._user_village_repository = user_village_repository
         self._node_repository = node_repository
         self._node_generator = node_generator
+        self._experience_repository = experience_repository
+        self._wallet_repository = wallet_repository
 
     async def execute(self, user: UserRead, onboard: OnboardCreate) -> list:
         if user.has_onboard:
             raise BadRequestException("User has already completed onboarding")
 
         async with self._uow:
-            db_castle = await self._building_repository.get_user_next_castle(
-                user.id
-            )
-            if not db_castle:
-                raise BadRequestException("No castle default template found")
-            await self._user_castle_repository.create(
-                user_id=user.id,
-                castle_id=db_castle.id,
-            )
+            # Check if castle already exists (e.g., after reset-onboard)
+            existing_castle = await self._user_castle_repository.get_user_castle(user.id)
+            if not existing_castle:
+                db_castle = await self._building_repository.get_user_next_castle(
+                    user.id
+                )
+                if not db_castle:
+                    raise BadRequestException("No castle default template found")
+                await self._user_castle_repository.create(
+                    user_id=user.id,
+                    castle_id=db_castle.id,
+                )
+
+            # Check if experience already exists
+            existing_exp = await self._experience_repository.get_by_user_id(user.id)
+            if not existing_exp:
+                await self._experience_repository.create(
+                    user_id=user.id,
+                    level=1,
+                    current_xp=0,
+                )
             await self._user_repository.update(
                 user.id,
                 current_score=onboard.current_score,
@@ -111,13 +130,22 @@ class OnboardController:
             passages: List[PassageOnboard],
             user_id: int,
     ) -> None:
-        db_village = await self._building_repository.get_user_next_village(
-            user_id,
-            subject=subject,
+        # Check if village for this subject already exists
+        existing_villages = await self._user_village_repository.get_user_villages(user_id)
+        has_subject = any(
+            v.get("village_subject") == subject
+            for v in existing_villages
         )
 
-        await self._user_village_repository.create(
-            user_id=user_id,
-            village_id=db_village.id,
-        )
+        if not has_subject:
+            db_village = await self._building_repository.get_user_next_village(
+                user_id,
+                subject=subject,
+            )
+            if db_village:
+                await self._user_village_repository.create(
+                    user_id=user_id,
+                    village_id=db_village.id,
+                )
+
         await self._node_generator.generate(passages)

@@ -20,7 +20,8 @@ from src.presentations.routers import (
     questions,
     roadmaps,
     users,
-    submits
+    submits,
+    dev,
 )
 
 
@@ -66,6 +67,9 @@ def create_app() -> FastAPI:
     v1_api.include_router(passages.router)
     v1_api.include_router(nodes.router)
     v1_api.include_router(questions.router)
+
+    # Dev routers (only work in DEBUG mode)
+    v1_api.include_router(dev.router)
 
     app = FastAPI(lifespan=lifespan, swagger_ui_parameters={"withCredentials": True})
     app.include_router(v1_api)

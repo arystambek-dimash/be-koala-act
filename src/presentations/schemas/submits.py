@@ -36,12 +36,12 @@ class FillGapSubmit(BaseModel):
 
 
 class MatchingPairSubmit(BaseModel):
-    left: str
-    right: str
+    left_id: str
+    right_id: str
 
 
 class MatchingSubmit(BaseModel):
-    matches: List[MatchingPairSubmit]
+    pairs: List[MatchingPairSubmit]
 
 
 class GraphPointSubmit(BaseModel):
@@ -150,5 +150,10 @@ class SubmitModel(BaseModel):
 
 class SubmitResponse(BaseModel):
     earned_xp: int
+    earned_coins: int
     accuracy: float
     correct_answers: int
+    total_questions: int
+    is_completed: bool
+    next_node_unlocked: bool
+    next_node_id: int | None

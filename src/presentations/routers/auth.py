@@ -1,7 +1,8 @@
 from typing import Literal, Optional
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
+from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
@@ -9,6 +10,17 @@ from src.controllers.auths import AuthController
 from src.presentations.depends import get_auth_controller
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+
+class DevLoginRequest(BaseModel):
+    email: str
+
+
+class DevLoginResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    user_id: int
+    email: str
 
 
 @router.get("/google")
@@ -78,3 +90,22 @@ async def logout(response: Response):
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
     return {"message": "Logged out"}
+
+
+@router.post("/dev-login", response_model=DevLoginResponse)
+async def dev_login(
+        request: Request,
+        body: DevLoginRequest,
+        controller: AuthController = Depends(get_auth_controller),
+):
+    """
+    DEV ONLY: Login without OAuth for local development.
+    Only works when DEBUG=True.
+    """
+    settings = request.app.state.settings
+
+    # Security check - only allow in DEBUG mode
+    if not settings.DEBUG:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    return await controller.dev_login(body.email, settings)

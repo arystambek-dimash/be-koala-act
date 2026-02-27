@@ -25,6 +25,7 @@ class UserUpdate(BaseModel):
     current_score: Optional[int] = None
     target_score: Optional[int] = None
     exam_date: Optional[datetime] = None
+    has_onboard: Optional[bool] = None
 
 
 # --- Village schemas ---

@@ -31,6 +31,7 @@ from src.repositories import (
     UserVillageRepository,
     QuestionRepository,
     WalletRepository,
+    ExperienceRepository,
 )
 
 http_bearer = HTTPBearer(auto_error=False)
@@ -137,6 +138,14 @@ async def get_user_node_progress_repository(
     return UserNodeProgressRepository(session=session)
 
 
+async def get_experience_repository(session: AsyncSession = Depends(get_session)) -> ExperienceRepository:
+    return ExperienceRepository(session=session)
+
+
+async def get_wallet_repository(session: AsyncSession = Depends(get_session)) -> WalletRepository:
+    return WalletRepository(session=session)
+
+
 # --- Service factories ---
 
 def get_openai_service(request: Request) -> OpenAIService:
@@ -157,8 +166,13 @@ async def get_passage_node_generator(
 async def get_auth_controller(
         uow: UoW = Depends(get_uow),
         user_repo: UserRepository = Depends(get_user_repository),
+        experience_repo: ExperienceRepository = Depends(get_experience_repository),
 ):
-    return AuthController(uow=uow, user_repository=user_repo)
+    return AuthController(
+        uow=uow,
+        user_repository=user_repo,
+        experience_repository=experience_repo,
+    )
 
 
 async def get_user_controller(
@@ -184,6 +198,8 @@ async def get_onboard_controller(
         user_village_repository: UserVillageRepository = Depends(get_user_village_repository),
         node_generator: PassageNodeGenerator = Depends(get_passage_node_generator),
         node_repository: PassageNodeRepository = Depends(get_passage_node_repository),
+        experience_repository: ExperienceRepository = Depends(get_experience_repository),
+        wallet_repository: WalletRepository = Depends(get_wallet_repository),
 ) -> OnboardController:
     return OnboardController(
         uow=uow,
@@ -194,6 +210,8 @@ async def get_onboard_controller(
         user_village_repository=user_village_repository,
         node_generator=node_generator,
         node_repository=node_repository,
+        experience_repository=experience_repository,
+        wallet_repository=wallet_repository,
     )
 
 
@@ -240,11 +258,6 @@ async def require_admin(
     if not current_user.is_admin:
         raise ForbiddenException("Admin access required")
     return current_user
-
-
-# --- Additional repository factories ---
-async def get_wallet_repository(session: AsyncSession = Depends(get_session)) -> WalletRepository:
-    return WalletRepository(session=session)
 
 
 # --- Service factories ---
@@ -348,10 +361,14 @@ async def get_submit_controller(
         question_repository: QuestionRepository = Depends(get_question_repository),
         node_repository: PassageNodeRepository = Depends(get_passage_node_repository),
         user_progress_repository: UserNodeProgressRepository = Depends(get_user_node_progress_repository),
+        wallet_repository: WalletRepository = Depends(get_wallet_repository),
+        experience_repository: ExperienceRepository = Depends(get_experience_repository),
 ) -> SubmitController:
     return SubmitController(
         uow=uow,
         question_repository=question_repository,
         node_repository=node_repository,
         user_progress_repository=user_progress_repository,
+        wallet_repository=wallet_repository,
+        experience_repository=experience_repository,
     )
